@@ -327,23 +327,42 @@ class AjaxCloudApi:
             return list(self._hubs.values())
     
     def _parse_devices_from_hub(self, hub_data: dict, hub_id: str) -> None:
-        """Extract and parse devices from hub data."""
-        # Try different possible keys for devices in hub data
-        device_keys = ["devices", "devicesList", "sensors", "zones", "objects"]
+        """Extract and parse devices from hub data.
         
+        Based on PHP library, hub data contains 'objects' array with devices.
+        Each object has properties like: type, name, id, state, battery, etc.
+        """
+        if not isinstance(hub_data, dict):
+            _LOGGER.warning("Hub data is not a dict: %s", type(hub_data))
+            return
+            
+        # Log all keys in hub_data for debugging
+        _LOGGER.debug("Hub data contains keys: %s", list(hub_data.keys()))
+        
+        # Try different possible keys for devices in hub data
+        device_keys = ["objects", "devices", "devicesList", "sensors", "zones"]
+        
+        found_devices = False
         for key in device_keys:
             if key in hub_data and hub_data[key]:
                 devices_data = hub_data[key]
-                _LOGGER.debug("Found devices under key '%s': %d items", key, 
-                            len(devices_data) if isinstance(devices_data, list) else 1)
+                _LOGGER.info("Found devices under key '%s'", key)
                 
                 if isinstance(devices_data, list):
-                    for device_data in devices_data:
-                        device = self._parse_device(device_data, hub_id)
-                        if device:
-                            self._devices[device.device_id] = device
-                            _LOGGER.debug("Added device: %s (%s)", device.name, device.device_type)
+                    _LOGGER.info("Devices list has %d items", len(devices_data))
+                    for idx, device_data in enumerate(devices_data):
+                        if isinstance(device_data, dict):
+                            _LOGGER.debug("Device %d data: %s", idx, device_data)
+                            device = self._parse_device(device_data, hub_id)
+                            if device:
+                                self._devices[device.device_id] = device
+                                _LOGGER.info("Added device: %s (type: %s, id: %s)", 
+                                           device.name, device.device_type, device.device_id)
+                                found_devices = True
+                        else:
+                            _LOGGER.warning("Device %d is not a dict: %s", idx, type(device_data))
                 elif isinstance(devices_data, dict):
+                    _LOGGER.info("Devices is a dict with %d keys", len(devices_data))
                     # Could be a dict with device IDs as keys
                     for dev_id, device_data in devices_data.items():
                         if isinstance(device_data, dict):
@@ -351,6 +370,11 @@ class AjaxCloudApi:
                             device = self._parse_device(device_data, hub_id)
                             if device:
                                 self._devices[device.device_id] = device
+                                _LOGGER.info("Added device: %s (type: %s)", device.name, device.device_type)
+                                found_devices = True
+                                
+        if not found_devices:
+            _LOGGER.warning("No devices found in hub data. Available keys: %s", list(hub_data.keys()))
     
     async def get_hub_info(self, hub_id: str) -> Optional[AjaxHub]:
         """Get detailed hub information."""
@@ -615,22 +639,59 @@ class AjaxCloudApi:
     def _parse_device(
         self, data: dict[str, Any], hub_id: str
     ) -> Optional[AjaxDevice]:
-        """Parse device data from API response."""
-        device_type_str = data.get("type", "").lower()
-        device_id = str(data.get("id", data.get("deviceId", "")))
-        name = data.get("name", f"Ajax {device_type_str}")
+        """Parse device data from API response.
+        
+        Ajax API may return device type as:
+        - String: "DoorProtect", "MotionProtect", etc.
+        - Number: objectType field (e.g., 4=DoorProtect, 5=MotionProtect)
+        """
+        # Log raw device data for debugging
+        _LOGGER.debug("Parsing device data: %s", data)
+        
+        # Get device type - could be string or number
+        device_type_raw = data.get("type", data.get("objectType", data.get("deviceType", "")))
+        device_type_str = str(device_type_raw).lower()
+        
+        # Map numeric types to names (from Ajax API observation)
+        # These are approximate based on common Ajax device numbering
+        numeric_type_map = {
+            "4": "door",
+            "5": "motion", 
+            "6": "glass",
+            "7": "leak",
+            "8": "fire",
+            "9": "smoke",
+            "10": "combo",
+            "14": "keypad",
+            "15": "siren",
+            "31": "wallswitch",
+            "32": "relay",
+            "33": "socket",
+        }
+        
+        if device_type_str.isdigit():
+            device_type_str = numeric_type_map.get(device_type_str, f"type_{device_type_str}")
+            _LOGGER.debug("Mapped numeric type %s to %s", device_type_raw, device_type_str)
+        
+        device_id = str(data.get("id", data.get("deviceId", data.get("objectId", ""))))
+        if not device_id:
+            device_id = f"device_{hash(str(data))}"
+            
+        name = data.get("name", data.get("objectName", f"Ajax {device_type_str}"))
+        
+        _LOGGER.debug("Device: id=%s, type=%s, name=%s", device_id, device_type_str, name)
         
         # Common attributes
         common = {
             "device_id": device_id,
             "name": name,
             "hub_id": hub_id,
-            "online": data.get("online", True),
-            "battery_level": data.get("battery"),
-            "signal_strength": data.get("signalLevel"),
-            "temperature": data.get("temperature"),
-            "firmware_version": data.get("firmware"),
-            "tamper": data.get("tamper", False),
+            "online": data.get("online", data.get("isOnline", True)),
+            "battery_level": data.get("battery", data.get("batteryLevel")),
+            "signal_strength": data.get("signalLevel", data.get("signal")),
+            "temperature": data.get("temperature", data.get("temp")),
+            "firmware_version": data.get("firmware", data.get("firmwareVersion")),
+            "tamper": data.get("tamper", data.get("tamperAlarm", False)),
         }
         
         # Create appropriate device type
