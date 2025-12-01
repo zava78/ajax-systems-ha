@@ -275,27 +275,44 @@ class AjaxCloudApi:
             hubs = []
             data = response.get("data")
             
-            _LOGGER.debug("Raw hubs data: %s", data[:500] if data and len(data) > 500 else data)
+            # Safe logging of data
+            if data:
+                data_preview = str(data)[:500] if len(str(data)) > 500 else str(data)
+                _LOGGER.debug("Raw hubs data: %s", data_preview)
+            else:
+                _LOGGER.warning("No hub data received from API")
             
             if data:
                 import json
                 try:
-                    hub_list = json.loads(data) if isinstance(data, str) else data
+                    if isinstance(data, str):
+                        hub_list = json.loads(data)
+                    elif isinstance(data, (list, dict)):
+                        hub_list = data
+                    else:
+                        _LOGGER.warning("Unexpected data type: %s", type(data))
+                        hub_list = []
                     _LOGGER.debug("Parsed hub data type: %s", type(hub_list))
+                except json.JSONDecodeError as e:
+                    _LOGGER.error("Failed to parse hub data as JSON: %s", e)
+                    hub_list = []
                 except Exception as e:
                     _LOGGER.error("Failed to parse hub data: %s", e)
                     hub_list = []
                 
                 if isinstance(hub_list, list):
                     for hub_data in hub_list:
-                        _LOGGER.debug("Hub data keys: %s", hub_data.keys() if isinstance(hub_data, dict) else "not a dict")
-                        hub = self._parse_hub(hub_data)
-                        self._hubs[hub.device_id] = hub
-                        hubs.append(hub)
-                        # Also parse devices from hub data
-                        self._parse_devices_from_hub(hub_data, hub.device_id)
+                        if isinstance(hub_data, dict):
+                            _LOGGER.debug("Hub data keys: %s", list(hub_data.keys()))
+                            hub = self._parse_hub(hub_data)
+                            self._hubs[hub.device_id] = hub
+                            hubs.append(hub)
+                            # Also parse devices from hub data
+                            self._parse_devices_from_hub(hub_data, hub.device_id)
+                        else:
+                            _LOGGER.warning("Hub data item is not a dict: %s", type(hub_data))
                 elif isinstance(hub_list, dict):
-                    _LOGGER.debug("Hub data keys: %s", hub_list.keys())
+                    _LOGGER.debug("Hub data keys: %s", list(hub_list.keys()))
                     hub = self._parse_hub(hub_list)
                     self._hubs[hub.device_id] = hub
                     hubs.append(hub)
