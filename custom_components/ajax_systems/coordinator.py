@@ -59,7 +59,8 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
     
     async def async_setup(self) -> bool:
         """Set up the coordinator."""
-        success = True
+        cloud_ok = False
+        sia_ok = False
         
         # Set up cloud API if enabled
         if self._use_cloud:
@@ -69,21 +70,28 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
             if username and password:
                 self._api = AjaxCloudApi(username, password)
                 try:
-                    if await self._api.authenticate():
-                        _LOGGER.info("Connected to Ajax Cloud API")
-                        # Get initial data
-                        hubs = await self._api.get_hubs()
-                        if hubs:
-                            self.data.hub = hubs[0]
-                            devices = await self._api.get_devices(self.data.hub.device_id)
-                            for device in devices:
-                                self.data.devices[device.device_id] = device
-                            self.data.connected = True
+                    await self._api.authenticate()
+                    _LOGGER.info("Connected to Ajax Cloud API")
+                    # Get initial data
+                    hubs = await self._api.get_hubs()
+                    if hubs:
+                        self.data.hub = hubs[0]
+                        _LOGGER.info("Found hub: %s", self.data.hub.name)
+                        devices = await self._api.get_devices(self.data.hub.device_id)
+                        for device in devices:
+                            self.data.devices[device.device_id] = device
+                        self.data.connected = True
+                        cloud_ok = True
                     else:
-                        _LOGGER.warning("Cloud API authentication failed, using SIA only")
-                        self._use_cloud = False
+                        _LOGGER.warning("No hubs found in Ajax Cloud")
+                except AjaxAuthError as err:
+                    _LOGGER.error("Cloud API authentication failed: %s", err)
+                    self._use_cloud = False
                 except AjaxApiError as err:
-                    _LOGGER.warning("Cloud API error: %s, using SIA only", err)
+                    _LOGGER.warning("Cloud API error: %s, will try SIA", err)
+                    self._use_cloud = False
+                except Exception as err:
+                    _LOGGER.error("Unexpected cloud API error: %s", err)
                     self._use_cloud = False
         
         # Set up SIA receiver if enabled
@@ -94,12 +102,15 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
             config = SiaConfig(port=port, account=account)
             self._sia_receiver = SiaReceiver(config, self._handle_sia_event)
             
-            if await self._sia_receiver.start():
-                _LOGGER.info("SIA receiver started on port %d", port)
-                self.data.connected = True
-            else:
-                _LOGGER.error("Failed to start SIA receiver")
-                success = False
+            try:
+                if await self._sia_receiver.start():
+                    _LOGGER.info("SIA receiver started on port %d", port)
+                    self.data.connected = True
+                    sia_ok = True
+                else:
+                    _LOGGER.warning("SIA receiver failed to start (port %d may be in use)", port)
+            except Exception as err:
+                _LOGGER.warning("SIA receiver error: %s", err)
         
         # Create a default hub if we don't have one from cloud
         if self.data.hub is None:
@@ -112,8 +123,19 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
                 hub_id=hub_id,
                 state=AjaxAlarmState.DISARMED,
             )
+            _LOGGER.info("Created default hub with ID: %s", hub_id)
         
-        return success
+        # Success if at least one method works, or if we just created a default hub
+        if cloud_ok or sia_ok:
+            _LOGGER.info("Ajax Systems coordinator setup complete (Cloud: %s, SIA: %s)", cloud_ok, sia_ok)
+            return True
+        
+        # Even without cloud/SIA, allow setup with default hub for testing
+        _LOGGER.warning(
+            "Neither Cloud API nor SIA receiver could be started. "
+            "Integration will work with limited functionality."
+        )
+        return True  # Allow setup anyway with default hub
     
     async def async_shutdown(self) -> None:
         """Shut down the coordinator."""
