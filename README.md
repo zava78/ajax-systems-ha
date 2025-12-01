@@ -54,7 +54,7 @@ This is an **unofficial** integration. Ajax Systems does not provide a public AP
 2. Click on "Integrations"
 3. Click the three dots in the top right corner
 4. Select "Custom repositories"
-5. Add this repository URL: `https://github.com/your-username/ajax-systems-ha`
+5. Add this repository URL: `https://github.com/zava78/ajax-systems-ha`
 6. Select "Integration" as the category
 7. Click "Add"
 8. Search for "Ajax Systems" and install
