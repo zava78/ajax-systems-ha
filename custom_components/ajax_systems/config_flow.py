@@ -66,15 +66,15 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema({
                 vol.Required("integration_type", default="sia"): vol.In({
-                    "sia": "SIA Protocol (Recommended)",
-                    "cloud": "Ajax Cloud API (Experimental)",
+                    "sia": "SIA Protocol (Recommended - Local)",
+                    "cloud": "⚠️ Ajax Cloud API (NOT WORKING - Closed in 2018)",
                     "mqtt": "MQTT Bridge (Jeedom)",
                 }),
             }),
             errors=errors,
             description_placeholders={
                 "sia_description": "Receive alarm events via SIA DC-09 protocol",
-                "cloud_description": "Full control via reverse-engineered API",
+                "cloud_description": "The Cloud API was closed by Ajax in 2018",
                 "mqtt_description": "Use Jeedom MQTT bridge as fallback",
             },
         )
@@ -130,59 +130,64 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_cloud(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Configure Ajax Cloud API."""
+        """Configure Ajax Cloud API - NOT WORKING (closed in 2018)."""
         errors: dict[str, str] = {}
         
         if user_input is not None:
-            username = user_input.get(CONF_USERNAME, "")
-            password = user_input.get(CONF_PASSWORD, "")
+            # Show warning that Cloud API doesn't work
+            errors["base"] = "cloud_api_closed"
             
-            # Try to authenticate with Ajax Cloud API
-            try:
-                from .api.ajax_cloud import AjaxCloudApi, AjaxAuthError, AjaxConnectionError
+            # If user insists, try anyway (will fail)
+            if user_input.get("try_anyway"):
+                username = user_input.get(CONF_USERNAME, "")
+                password = user_input.get(CONF_PASSWORD, "")
                 
-                api = AjaxCloudApi(username, password)
                 try:
-                    await api.authenticate()
-                    # Try to get hubs
-                    hubs = await api.get_hubs()
-                    _LOGGER.info("Cloud API: Found %d hubs", len(hubs))
-                except AjaxAuthError as err:
-                    _LOGGER.error("Cloud API authentication failed: %s", err)
-                    errors["base"] = "invalid_auth"
-                except AjaxConnectionError as err:
-                    _LOGGER.error("Cloud API connection error: %s", err)
-                    errors["base"] = "cannot_connect"
-                except Exception as err:
-                    _LOGGER.error("Cloud API unexpected error: %s", err)
-                    errors["base"] = "unknown"
-                finally:
-                    await api.close()
+                    from .api.ajax_cloud import AjaxCloudApi, AjaxAuthError, AjaxConnectionError
                     
-            except ImportError as err:
-                _LOGGER.error("Failed to import API client: %s", err)
-                errors["base"] = "unknown"
-            
-            if not errors:
-                self._data = {
-                    CONF_USE_SIA: user_input.get(CONF_USE_SIA, True),
-                    CONF_USE_CLOUD: True,
-                    CONF_USE_MQTT: False,
-                    CONF_USERNAME: username,
-                    CONF_PASSWORD: password,
-                    CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
-                    CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
-                    CONF_SIA_ACCOUNT: user_input.get(CONF_SIA_ACCOUNT, "AAA"),
-                }
+                    api = AjaxCloudApi(username, password)
+                    try:
+                        await api.authenticate()
+                        hubs = await api.get_hubs()
+                        if not hubs:
+                            errors["base"] = "cloud_api_closed"
+                        else:
+                            _LOGGER.info("Cloud API: Found %d hubs", len(hubs))
+                    except AjaxAuthError as err:
+                        _LOGGER.error("Cloud API authentication failed: %s", err)
+                        errors["base"] = "cloud_api_closed"
+                    except AjaxConnectionError as err:
+                        _LOGGER.error("Cloud API connection error: %s", err)
+                        errors["base"] = "cannot_connect"
+                    except Exception as err:
+                        _LOGGER.error("Cloud API unexpected error: %s", err)
+                        errors["base"] = "cloud_api_closed"
+                    finally:
+                        await api.close()
+                        
+                except ImportError as err:
+                    _LOGGER.error("Failed to import API client: %s", err)
+                    errors["base"] = "unknown"
                 
-                # Check for existing entry
-                await self.async_set_unique_id(f"ajax_cloud_{username}")
-                self._abort_if_unique_id_configured()
-                
-                return self.async_create_entry(
-                    title=f"Ajax Cloud ({username})",
-                    data=self._data,
-                )
+                if not errors:
+                    self._data = {
+                        CONF_USE_SIA: user_input.get(CONF_USE_SIA, True),
+                        CONF_USE_CLOUD: True,
+                        CONF_USE_MQTT: False,
+                        CONF_USERNAME: username,
+                        CONF_PASSWORD: password,
+                        CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
+                        CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
+                        CONF_SIA_ACCOUNT: user_input.get(CONF_SIA_ACCOUNT, "AAA"),
+                    }
+                    
+                    await self.async_set_unique_id(f"ajax_cloud_{username}")
+                    self._abort_if_unique_id_configured()
+                    
+                    return self.async_create_entry(
+                        title=f"Ajax Cloud ({username})",
+                        data=self._data,
+                    )
         
         return self.async_show_form(
             step_id="cloud",
@@ -196,6 +201,7 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_HUB_ID, default="ajax_hub"): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.TEXT)
                 ),
+                vol.Optional("try_anyway", default=False): BooleanSelector(),
                 vol.Optional(CONF_USE_SIA, default=True): BooleanSelector(),
                 vol.Optional(CONF_SIA_PORT, default=DEFAULT_SIA_PORT): NumberSelector(
                     NumberSelectorConfig(min=1, max=65535, step=1, mode="box")
@@ -206,7 +212,7 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             }),
             errors=errors,
             description_placeholders={
-                "api_note": "Using endpoints from app.ajax.systems (may not work)",
+                "api_note": "⚠️ WARNING: The Ajax Cloud API was CLOSED in 2018 and no longer works. Use SIA Protocol instead. The Enterprise API is only available to commercial partners.",
             },
         )
     

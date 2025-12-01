@@ -28,12 +28,13 @@
         }
       },
       "cloud": {
-        "title": "Configurazione Ajax Cloud",
-        "description": "Inserisci le credenziali del tuo account Ajax. Nota: L'API Cloud è SPERIMENTALE e potrebbe non funzionare. Il protocollo SIA è consigliato per un funzionamento affidabile.",
+        "title": "⚠️ API Ajax Cloud - NON FUNZIONANTE",
+        "description": "ATTENZIONE: L'API Cloud di Ajax è stata CHIUSA nel 2018 e non funziona più per gli utenti domestici. L'API Enterprise è disponibile solo per partner commerciali. Usa il Protocollo SIA per un'integrazione funzionante.",
         "data": {
           "username": "Email",
           "password": "Password",
           "hub_id": "ID Hub",
+          "try_anyway": "Prova comunque (probabilmente fallirà)",
           "use_sia": "Abilita anche ricevitore SIA",
           "sia_port": "Porta SIA",
           "sia_account": "Codice Account"
@@ -42,6 +43,7 @@
           "username": "Indirizzo email dell'app Ajax",
           "password": "Password dell'app Ajax",
           "hub_id": "Identificativo univoco per il tuo hub",
+          "try_anyway": "Tenta la connessione anche se non ci si aspetta che funzioni",
           "use_sia": "Abilita ricevitore SIA per aggiornamenti più veloci (consigliato)",
           "sia_port": "Porta per ricevere eventi SIA",
           "sia_account": "Codice account configurato nel tuo Ajax Hub"
@@ -65,6 +67,7 @@
       }
     },
     "error": {
+      "cloud_api_closed": "L'API Cloud di Ajax è stata chiusa nel 2018 e non funziona più. Usa il Protocollo SIA.",
       "invalid_auth": "Username o password non validi. Controlla le credenziali dell'app Ajax.",
       "cannot_connect": "Impossibile connettersi a Ajax Cloud (app.ajax.systems). Verifica la connessione internet.",
       "auth_failed": "Autenticazione fallita. Controlla le tue credenziali.",

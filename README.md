@@ -8,13 +8,18 @@ Custom Home Assistant integration for **Ajax Systems** security alarms.
 
 ## ⚠️ Disclaimer
 
-This is an **unofficial** integration. Ajax Systems does not provide a public API. This integration uses:
+This is an **unofficial** integration. Ajax Systems does not provide a public API for home users.
 
-1. **SIA DC-09 Protocol** - Standard security industry protocol (recommended)
-2. **Reverse-engineered Cloud API** - Experimental, may break at any time
-3. **MQTT Bridge** - Via Jeedom plugin (fallback option)
+### Available Integration Methods:
 
-**Use at your own risk.** The cloud API integration may violate Ajax Systems' terms of service.
+| Method | Status | Description |
+|--------|--------|-------------|
+| **SIA DC-09 Protocol** | ✅ **Recommended** | Standard security protocol, local communication |
+| **MQTT Bridge** | ✅ Works | Via Jeedom plugin |
+| **Cloud API** | ❌ **Not Available** | Was closed in 2018 |
+| **Enterprise API** | ❌ Partners Only | Requires commercial partnership |
+
+**Note:** The official [SIA integration](https://www.home-assistant.io/integrations/sia/) in Home Assistant already supports Ajax Systems. This custom integration provides additional features like device-specific entities and enhanced status information.
 
 ## Features
 
@@ -30,21 +35,20 @@ This is an **unofficial** integration. Ajax Systems does not provide a public AP
 
 ## Supported Devices
 
-| Device Type | SIA Support | Cloud API Support |
-|-------------|-------------|-------------------|
-| Hub, Hub 2, Hub 2 Plus | ✅ | ✅ |
-| DoorProtect | ✅ | ✅ |
-| DoorProtect Plus | ✅ | ✅ |
-| MotionProtect | ✅ | ✅ |
-| MotionProtect Plus | ✅ | ✅ |
-| MotionCam | ✅ | ✅ |
-| LeaksProtect | ✅ | ✅ |
-| FireProtect | ✅ | ✅ |
-| FireProtect Plus | ✅ | ✅ |
-| GlassProtect | ✅ | ✅ |
-| SpaceControl | ✅ | ✅ |
-| KeyPad | ✅ | ✅ |
-| Relay/WallSwitch | ❌ | ⚠️ Experimental |
+| Device Type | SIA Support | Notes |
+|-------------|-------------|-------|
+| Hub, Hub 2, Hub 2 Plus | ✅ | Full support |
+| DoorProtect | ✅ | Open/close states |
+| DoorProtect Plus | ✅ | Open/close + tilt |
+| MotionProtect | ✅ | Motion detection |
+| MotionProtect Plus | ✅ | Motion + pet immunity |
+| MotionCam | ✅ | Motion + photo on alarm |
+| LeaksProtect | ✅ | Water leak detection |
+| FireProtect | ✅ | Smoke detection |
+| FireProtect Plus | ✅ | Smoke + CO + heat |
+| GlassProtect | ✅ | Glass break detection |
+| SpaceControl | ✅ | Remote control events |
+| KeyPad | ✅ | Arm/disarm events |
 
 ## Installation
 
@@ -67,44 +71,43 @@ This is an **unofficial** integration. Ajax Systems does not provide a public AP
 
 ## Configuration
 
-### Option 1: SIA Protocol (Recommended)
+### SIA Protocol (Recommended)
 
-This method receives alarm events directly from your Ajax Hub via the SIA DC-09 protocol.
+This method receives alarm events directly from your Ajax Hub via the SIA DC-09 protocol. This is a **local** connection - no cloud required.
 
 1. Go to **Settings** → **Devices & Services** → **Add Integration**
 2. Search for "Ajax Systems"
-3. Select "SIA Protocol (Recommended)"
-4. Configure:
+3. Configure:
    - **Hub ID**: A unique identifier for your hub
    - **SIA Port**: Port to listen on (default: 2410)
    - **Account Code**: Must match your hub's configuration
+   - **Encryption Key** (optional): 16/24/32 character key
 
 **Ajax Hub Configuration:**
 
 In the Ajax app, go to Hub Settings → Monitoring Stations:
 1. Add a new monitoring station
-2. Protocol: SIA (DC-09)
+2. Protocol: **SIA (DC-09)**
 3. Server: Your Home Assistant IP address
 4. Port: 2410 (or your configured port)
 5. Account: Your account code (e.g., "AAA")
+6. Enable "Connect on demand"
+7. Enable "Periodic Reports" (1 minute recommended)
+8. Encryption: Optional but recommended
 
-### Option 2: Cloud API (Experimental)
-
-⚠️ **Warning**: This uses reverse-engineered APIs and may stop working at any time.
-
-1. Go to **Settings** → **Devices & Services** → **Add Integration**
-2. Search for "Ajax Systems"
-3. Select "Ajax Cloud API (Experimental)"
-4. Enter your Ajax app credentials
-5. Optionally enable SIA for faster event updates
-
-### Option 3: MQTT Bridge (Jeedom)
+### MQTT Bridge (Jeedom)
 
 Requires Jeedom with the Ajax plugin running and publishing to MQTT.
 
 1. Ensure Jeedom Ajax plugin is configured and publishing to MQTT
 2. Add the integration and select "MQTT Bridge (Jeedom)"
 3. Configure the MQTT topic prefix
+
+### About Cloud API
+
+⚠️ **The Ajax Cloud API was closed in 2018** and is no longer functional. The Enterprise API exists but is only available to commercial partners serving thousands of systems.
+
+For home users, SIA DC-09 is the only supported method.
 
 ## Services
 
@@ -178,9 +181,7 @@ automation:
 
 ### Cloud API authentication fails
 
-1. Verify your credentials work in the official Ajax app
-2. Check for any 2FA requirements
-3. The API may have been changed by Ajax - check for updates
+The Ajax Cloud API was closed in 2018 and no longer works. Use the SIA protocol instead.
 
 ### Devices not showing
 
