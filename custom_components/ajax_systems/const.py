@@ -14,10 +14,13 @@ CONF_SIA_PORT: Final = "sia_port"
 CONF_SIA_ACCOUNT: Final = "sia_account"
 CONF_USE_MQTT: Final = "use_mqtt"
 CONF_MQTT_TOPIC_PREFIX: Final = "mqtt_topic_prefix"
+CONF_MQTT_PREFIX: Final = "mqtt_prefix"
+CONF_SIA_ENCRYPTION_KEY: Final = "sia_encryption_key"
 
 # Default values
 DEFAULT_SIA_PORT: Final = 2410
 DEFAULT_MQTT_TOPIC_PREFIX: Final = "jeedom/cmd"
+DEFAULT_MQTT_PREFIX: Final = "jeedom/cmd"
 
 # API endpoints (reverse engineered from Jeedom plugin analysis)
 AJAX_CLOUD_BASE_URL: Final = "https://app.ajax.systems"

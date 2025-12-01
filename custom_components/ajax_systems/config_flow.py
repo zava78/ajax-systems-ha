@@ -6,9 +6,9 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -36,7 +36,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class AjaxSystemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Ajax Systems."""
     
     VERSION = 1
@@ -243,16 +243,16 @@ class AjaxSystemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-    ) -> config_entries.OptionsFlow:
+        config_entry: ConfigEntry,
+    ) -> OptionsFlow:
         """Get the options flow for this handler."""
         return AjaxOptionsFlow(config_entry)
 
 
-class AjaxOptionsFlow(config_entries.OptionsFlow):
+class AjaxOptionsFlow(OptionsFlow):
     """Handle options flow for Ajax Systems."""
     
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+    def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
     
