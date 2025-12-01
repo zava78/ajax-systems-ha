@@ -29,10 +29,11 @@
       },
       "cloud": {
         "title": "Ajax Cloud Configuration",
-        "description": "Enter your Ajax account credentials. Note: This uses a reverse-engineered API and may stop working at any time.",
+        "description": "Enter your Ajax account credentials. Note: Cloud API is EXPERIMENTAL and may not work. SIA protocol is recommended for reliable operation.",
         "data": {
           "username": "Email",
           "password": "Password",
+          "hub_id": "Hub ID",
           "use_sia": "Also enable SIA receiver",
           "sia_port": "SIA Port",
           "sia_account": "Account Code"
@@ -40,7 +41,8 @@
         "data_description": {
           "username": "Your Ajax app email address",
           "password": "Your Ajax app password",
-          "use_sia": "Enable SIA receiver for faster event updates",
+          "hub_id": "Unique identifier for your hub",
+          "use_sia": "Enable SIA receiver for faster event updates (recommended)",
           "sia_port": "Port to listen for SIA events",
           "sia_account": "Account code configured in your Ajax Hub"
         }

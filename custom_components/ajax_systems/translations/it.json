@@ -29,10 +29,11 @@
       },
       "cloud": {
         "title": "Configurazione Ajax Cloud",
-        "description": "Inserisci le credenziali del tuo account Ajax. Nota: Questa integrazione usa API reverse-engineered e potrebbe smettere di funzionare in qualsiasi momento.",
+        "description": "Inserisci le credenziali del tuo account Ajax. Nota: L'API Cloud è SPERIMENTALE e potrebbe non funzionare. Il protocollo SIA è consigliato per un funzionamento affidabile.",
         "data": {
           "username": "Email",
           "password": "Password",
+          "hub_id": "ID Hub",
           "use_sia": "Abilita anche ricevitore SIA",
           "sia_port": "Porta SIA",
           "sia_account": "Codice Account"
@@ -40,7 +41,8 @@
         "data_description": {
           "username": "Indirizzo email dell'app Ajax",
           "password": "Password dell'app Ajax",
-          "use_sia": "Abilita ricevitore SIA per aggiornamenti più veloci",
+          "hub_id": "Identificativo univoco per il tuo hub",
+          "use_sia": "Abilita ricevitore SIA per aggiornamenti più veloci (consigliato)",
           "sia_port": "Porta per ricevere eventi SIA",
           "sia_account": "Codice account configurato nel tuo Ajax Hub"
         }
