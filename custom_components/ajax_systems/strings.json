@@ -1,0 +1,52 @@
+{
+  "title": "Ajax Systems",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ajax Systems Setup",
+        "description": "Choose the integration method for your Ajax alarm system.",
+        "data": {
+          "integration_type": "Integration Type"
+        }
+      },
+      "sia": {
+        "title": "SIA Protocol Configuration",
+        "data": {
+          "hub_id": "Hub ID",
+          "sia_port": "SIA Port",
+          "sia_account": "Account Code",
+          "sia_encryption_key": "Encryption Key"
+        }
+      },
+      "cloud": {
+        "title": "Ajax Cloud Configuration",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "use_sia": "Enable SIA",
+          "sia_port": "SIA Port",
+          "sia_account": "Account Code"
+        }
+      },
+      "mqtt": {
+        "title": "MQTT Bridge Configuration",
+        "data": {
+          "hub_id": "Hub ID",
+          "mqtt_prefix": "MQTT Prefix",
+          "use_sia": "Enable SIA",
+          "sia_port": "SIA Port"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Authentication failed",
+      "connection_failed": "Connection failed",
+      "invalid_port": "Invalid port",
+      "port_in_use": "Port in use",
+      "unknown": "Unknown error"
+    },
+    "abort": {
+      "already_configured": "Already configured"
+    }
+  }
+}

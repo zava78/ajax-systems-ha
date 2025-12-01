@@ -1,0 +1,131 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ajax Systems Setup",
+        "description": "Choose the integration method for your Ajax alarm system.",
+        "data": {
+          "integration_type": "Integration Type"
+        },
+        "data_description": {
+          "integration_type": "SIA: Receive events via SIA DC-09 protocol (recommended)\nCloud: Full control via Ajax API (experimental)\nMQTT: Use Jeedom bridge as fallback"
+        }
+      },
+      "sia": {
+        "title": "SIA Protocol Configuration",
+        "description": "Configure the SIA DC-09 receiver. Set up your Ajax Hub to send events to this Home Assistant instance.",
+        "data": {
+          "hub_id": "Hub ID",
+          "sia_port": "SIA Port",
+          "sia_account": "Account Code",
+          "sia_encryption_key": "Encryption Key (optional)"
+        },
+        "data_description": {
+          "hub_id": "Unique identifier for your hub",
+          "sia_port": "Port to listen for SIA events (default: 2410)",
+          "sia_account": "Account code configured in your Ajax Hub",
+          "sia_encryption_key": "AES encryption key if encryption is enabled"
+        }
+      },
+      "cloud": {
+        "title": "Ajax Cloud Configuration",
+        "description": "Enter your Ajax account credentials. Note: This uses a reverse-engineered API and may stop working at any time.",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "use_sia": "Also enable SIA receiver",
+          "sia_port": "SIA Port",
+          "sia_account": "Account Code"
+        },
+        "data_description": {
+          "username": "Your Ajax app email address",
+          "password": "Your Ajax app password",
+          "use_sia": "Enable SIA receiver for faster event updates",
+          "sia_port": "Port to listen for SIA events",
+          "sia_account": "Account code configured in your Ajax Hub"
+        }
+      },
+      "mqtt": {
+        "title": "MQTT Bridge Configuration",
+        "description": "Configure MQTT bridge using Jeedom. Requires Jeedom with Ajax plugin to be running.",
+        "data": {
+          "hub_id": "Hub ID",
+          "mqtt_prefix": "MQTT Topic Prefix",
+          "use_sia": "Also enable SIA receiver",
+          "sia_port": "SIA Port"
+        },
+        "data_description": {
+          "hub_id": "Unique identifier for your hub",
+          "mqtt_prefix": "MQTT topic prefix used by Jeedom",
+          "use_sia": "Enable SIA receiver for direct hub events",
+          "sia_port": "Port to listen for SIA events"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Authentication failed. Check your credentials.",
+      "connection_failed": "Failed to connect to Ajax Cloud.",
+      "invalid_port": "Invalid port number.",
+      "port_in_use": "Port is already in use.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Ajax system is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ajax Systems Options",
+        "data": {
+          "sia_port": "SIA Port",
+          "sia_account": "Account Code"
+        }
+      }
+    }
+  },
+  "entity": {
+    "alarm_control_panel": {
+      "ajax_alarm": {
+        "name": "Ajax Alarm"
+      }
+    },
+    "binary_sensor": {
+      "door": {
+        "name": "Door"
+      },
+      "motion": {
+        "name": "Motion"
+      },
+      "leak": {
+        "name": "Leak"
+      },
+      "smoke": {
+        "name": "Smoke"
+      },
+      "heat": {
+        "name": "Heat"
+      },
+      "glass": {
+        "name": "Glass Break"
+      },
+      "tamper": {
+        "name": "Tamper"
+      },
+      "connection": {
+        "name": "Connection"
+      }
+    },
+    "sensor": {
+      "battery": {
+        "name": "Battery"
+      },
+      "signal": {
+        "name": "Signal Strength"
+      },
+      "temperature": {
+        "name": "Temperature"
+      }
+    }
+  }
+}

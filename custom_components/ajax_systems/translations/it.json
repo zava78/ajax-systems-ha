@@ -1,0 +1,131 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurazione Ajax Systems",
+        "description": "Scegli il metodo di integrazione per il tuo sistema di allarme Ajax.",
+        "data": {
+          "integration_type": "Tipo di Integrazione"
+        },
+        "data_description": {
+          "integration_type": "SIA: Ricevi eventi tramite protocollo SIA DC-09 (consigliato)\nCloud: Controllo completo tramite API Ajax (sperimentale)\nMQTT: Usa Jeedom bridge come fallback"
+        }
+      },
+      "sia": {
+        "title": "Configurazione Protocollo SIA",
+        "description": "Configura il ricevitore SIA DC-09. Imposta il tuo Ajax Hub per inviare eventi a questa istanza di Home Assistant.",
+        "data": {
+          "hub_id": "ID Hub",
+          "sia_port": "Porta SIA",
+          "sia_account": "Codice Account",
+          "sia_encryption_key": "Chiave di Crittografia (opzionale)"
+        },
+        "data_description": {
+          "hub_id": "Identificativo univoco per il tuo hub",
+          "sia_port": "Porta per ricevere eventi SIA (default: 2410)",
+          "sia_account": "Codice account configurato nel tuo Ajax Hub",
+          "sia_encryption_key": "Chiave AES se la crittografia è abilitata"
+        }
+      },
+      "cloud": {
+        "title": "Configurazione Ajax Cloud",
+        "description": "Inserisci le credenziali del tuo account Ajax. Nota: Questa integrazione usa API reverse-engineered e potrebbe smettere di funzionare in qualsiasi momento.",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "use_sia": "Abilita anche ricevitore SIA",
+          "sia_port": "Porta SIA",
+          "sia_account": "Codice Account"
+        },
+        "data_description": {
+          "username": "Indirizzo email dell'app Ajax",
+          "password": "Password dell'app Ajax",
+          "use_sia": "Abilita ricevitore SIA per aggiornamenti più veloci",
+          "sia_port": "Porta per ricevere eventi SIA",
+          "sia_account": "Codice account configurato nel tuo Ajax Hub"
+        }
+      },
+      "mqtt": {
+        "title": "Configurazione Bridge MQTT",
+        "description": "Configura il bridge MQTT usando Jeedom. Richiede Jeedom con plugin Ajax in esecuzione.",
+        "data": {
+          "hub_id": "ID Hub",
+          "mqtt_prefix": "Prefisso Topic MQTT",
+          "use_sia": "Abilita anche ricevitore SIA",
+          "sia_port": "Porta SIA"
+        },
+        "data_description": {
+          "hub_id": "Identificativo univoco per il tuo hub",
+          "mqtt_prefix": "Prefisso topic MQTT usato da Jeedom",
+          "use_sia": "Abilita ricevitore SIA per eventi diretti dall'hub",
+          "sia_port": "Porta per ricevere eventi SIA"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Autenticazione fallita. Controlla le tue credenziali.",
+      "connection_failed": "Impossibile connettersi a Ajax Cloud.",
+      "invalid_port": "Numero di porta non valido.",
+      "port_in_use": "La porta è già in uso.",
+      "unknown": "Si è verificato un errore imprevisto."
+    },
+    "abort": {
+      "already_configured": "Questo sistema Ajax è già configurato."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni Ajax Systems",
+        "data": {
+          "sia_port": "Porta SIA",
+          "sia_account": "Codice Account"
+        }
+      }
+    }
+  },
+  "entity": {
+    "alarm_control_panel": {
+      "ajax_alarm": {
+        "name": "Allarme Ajax"
+      }
+    },
+    "binary_sensor": {
+      "door": {
+        "name": "Porta"
+      },
+      "motion": {
+        "name": "Movimento"
+      },
+      "leak": {
+        "name": "Perdita Acqua"
+      },
+      "smoke": {
+        "name": "Fumo"
+      },
+      "heat": {
+        "name": "Calore"
+      },
+      "glass": {
+        "name": "Rottura Vetro"
+      },
+      "tamper": {
+        "name": "Manomissione"
+      },
+      "connection": {
+        "name": "Connessione"
+      }
+    },
+    "sensor": {
+      "battery": {
+        "name": "Batteria"
+      },
+      "signal": {
+        "name": "Potenza Segnale"
+      },
+      "temperature": {
+        "name": "Temperatura"
+      }
+    }
+  }
+}

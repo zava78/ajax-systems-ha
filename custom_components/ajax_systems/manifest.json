@@ -1,0 +1,16 @@
+{
+  "domain": "ajax_systems",
+  "name": "Ajax Systems Alarm",
+  "codeowners": ["@your-github-username"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/your-username/ajax-systems-ha",
+  "integration_type": "hub",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/your-username/ajax-systems-ha/issues",
+  "requirements": [
+    "aiohttp>=3.8.0",
+    "pysiaalarm>=3.1.1"
+  ],
+  "version": "0.1.0"
+}

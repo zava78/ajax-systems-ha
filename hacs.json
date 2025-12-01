@@ -1,0 +1,6 @@
+{
+  "name": "Ajax Systems",
+  "homeassistant": "2024.1.0",
+  "render_readme": true,
+  "country": ["IT", "UA", "PL", "ES", "FR", "DE", "NL", "BE", "AT", "CH"]
+}
