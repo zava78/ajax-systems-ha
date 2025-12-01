@@ -137,29 +137,52 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             username = user_input.get(CONF_USERNAME, "")
             password = user_input.get(CONF_PASSWORD, "")
             
-            # NOTE: Cloud API validation is disabled because Ajax does not provide
-            # a public API. The credentials are saved but cloud functionality
-            # may not work. Use SIA protocol instead for reliable operation.
+            # Try to authenticate with Ajax Cloud API
+            try:
+                from .api.ajax_cloud import AjaxCloudApi, AjaxAuthError, AjaxConnectionError
+                
+                api = AjaxCloudApi(username, password)
+                try:
+                    await api.authenticate()
+                    # Try to get hubs
+                    hubs = await api.get_hubs()
+                    _LOGGER.info("Cloud API: Found %d hubs", len(hubs))
+                except AjaxAuthError as err:
+                    _LOGGER.error("Cloud API authentication failed: %s", err)
+                    errors["base"] = "invalid_auth"
+                except AjaxConnectionError as err:
+                    _LOGGER.error("Cloud API connection error: %s", err)
+                    errors["base"] = "cannot_connect"
+                except Exception as err:
+                    _LOGGER.error("Cloud API unexpected error: %s", err)
+                    errors["base"] = "unknown"
+                finally:
+                    await api.close()
+                    
+            except ImportError as err:
+                _LOGGER.error("Failed to import API client: %s", err)
+                errors["base"] = "unknown"
             
-            self._data = {
-                CONF_USE_SIA: user_input.get(CONF_USE_SIA, True),
-                CONF_USE_CLOUD: True,
-                CONF_USE_MQTT: False,
-                CONF_USERNAME: username,
-                CONF_PASSWORD: password,
-                CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
-                CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
-                CONF_SIA_ACCOUNT: user_input.get(CONF_SIA_ACCOUNT, "AAA"),
-            }
-            
-            # Check for existing entry
-            await self.async_set_unique_id(f"ajax_cloud_{username}")
-            self._abort_if_unique_id_configured()
-            
-            return self.async_create_entry(
-                title=f"Ajax Cloud ({username})",
-                data=self._data,
-            )
+            if not errors:
+                self._data = {
+                    CONF_USE_SIA: user_input.get(CONF_USE_SIA, True),
+                    CONF_USE_CLOUD: True,
+                    CONF_USE_MQTT: False,
+                    CONF_USERNAME: username,
+                    CONF_PASSWORD: password,
+                    CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
+                    CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
+                    CONF_SIA_ACCOUNT: user_input.get(CONF_SIA_ACCOUNT, "AAA"),
+                }
+                
+                # Check for existing entry
+                await self.async_set_unique_id(f"ajax_cloud_{username}")
+                self._abort_if_unique_id_configured()
+                
+                return self.async_create_entry(
+                    title=f"Ajax Cloud ({username})",
+                    data=self._data,
+                )
         
         return self.async_show_form(
             step_id="cloud",
@@ -182,6 +205,9 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
             }),
             errors=errors,
+            description_placeholders={
+                "api_note": "Using endpoints from app.ajax.systems (may not work)",
+            },
         )
     
     async def async_step_mqtt(

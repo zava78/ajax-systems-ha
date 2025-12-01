@@ -65,11 +65,13 @@
       }
     },
     "error": {
+      "invalid_auth": "Invalid username or password. Check your Ajax app credentials.",
+      "cannot_connect": "Failed to connect to Ajax Cloud (app.ajax.systems). Check your internet connection.",
       "auth_failed": "Authentication failed. Check your credentials.",
       "connection_failed": "Failed to connect to Ajax Cloud.",
       "invalid_port": "Invalid port number.",
       "port_in_use": "Port is already in use.",
-      "unknown": "An unexpected error occurred."
+      "unknown": "An unexpected error occurred. Check the logs for details."
     },
     "abort": {
       "already_configured": "This Ajax system is already configured."
