@@ -210,8 +210,37 @@ Contributions are welcome! Please read the contributing guidelines before submit
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Credits & Resources
+
+### Inspiration & Code Sources
+
+| Resource | Author | Description |
+|----------|--------|-------------|
+| [ajax-systems-api](https://github.com/igormukhingmailcom/ajax-systems-api) | Igor Mukhin | PHP library with reverse-engineered Ajax Cloud API endpoints (MIT) |
+| [Jeedom-ajax](https://github.com/Flobul/Jeedom-ajax) | Flobul | Jeedom plugin for Ajax Systems |
+| [ha-ajax-uart](https://github.com/FScoua/ha-ajax-uart) | FScoua | Home Assistant integration for Ajax via UART Bridge |
+| [pysiaalarm](https://github.com/eavanvalkenburg/pysiaalarm) | E. van Valkenburg | Python SIA protocol implementation |
+
+### Ajax Systems Official Resources
+
+- 🏠 [Ajax Systems Website](https://ajax.systems/)
+- 🔌 [Ajax Enterprise API](https://ajax.systems/blog/enterprise-api/) - Official API (requires partnership)
+- ☁️ [Ajax Cloud Signaling](https://ajax.systems/ajax-cloud-signaling/)
+- 📚 [Ajax Support & Manuals](https://support.ajax.systems/)
+- 📱 [Ajax Security System App](https://ajax.systems/ajax-security-system/)
+
+### Community Discussions
+
+- [Home Assistant Community - Ajax Integration](https://community.home-assistant.io/t/ajax-systems-alarm/136596)
+- [Home Assistant Community Forum](https://community.home-assistant.io/)
+
+## Contributors
+
+- [@zava78](https://github.com/zava78) - Initial development and maintenance
+
 ## Acknowledgments
 
-- [pysiaalarm](https://github.com/eavanvalkenburg/pysiaalarm) - SIA protocol implementation
-- Ajax Systems community for reverse-engineering efforts
-- Jeedom Ajax plugin for API insights
+Special thanks to:
+- **Igor Mukhin** for the original PHP API reverse engineering work
+- **Ajax Systems Community** for sharing integration knowledge
+- **Home Assistant Community** for testing and feedback

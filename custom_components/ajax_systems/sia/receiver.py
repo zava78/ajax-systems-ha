@@ -5,6 +5,20 @@ protocol for receiving alarm events from Ajax hubs.
 
 The SIA protocol is the standard way Ajax communicates with
 Alarm Receiving Centers (ARCs).
+
+CREDITS & RESOURCES:
+====================
+- pysiaalarm library: https://github.com/eavanvalkenburg/pysiaalarm
+  Author: E. van Valkenburg
+  
+- SIA DC-09 Standard: Security Industry Association
+  https://www.securityindustry.org/
+
+- Ajax Hub SIA Configuration:
+  https://support.ajax.systems/en/manuals/hub-2/
+  
+- Home Assistant SIA integration:
+  https://www.home-assistant.io/integrations/sia/
 """
 import asyncio
 import logging

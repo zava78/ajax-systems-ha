@@ -1,4 +1,25 @@
-"""The Ajax Systems integration."""
+"""The Ajax Systems integration for Home Assistant.
+
+Custom integration for Ajax Systems security alarms.
+
+CREDITS & RESOURCES:
+====================
+GitHub Repository: https://github.com/zava78/ajax-systems-ha
+Author: @zava78
+
+Based on:
+- ajax-systems-api by Igor Mukhin: https://github.com/igormukhingmailcom/ajax-systems-api
+- Jeedom Ajax plugin by Flobul: https://github.com/Flobul/Jeedom-ajax
+- pysiaalarm by E. van Valkenburg: https://github.com/eavanvalkenburg/pysiaalarm
+
+Official Resources:
+- Ajax Systems: https://ajax.systems/
+- Ajax Enterprise API: https://ajax.systems/blog/enterprise-api/
+
+DISCLAIMER:
+This is an UNOFFICIAL integration. Ajax Systems does not provide a public API.
+Use at your own risk.
+"""
 from __future__ import annotations
 
 import logging

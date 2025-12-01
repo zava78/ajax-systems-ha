@@ -1,12 +1,25 @@
 """Ajax Systems Cloud API client.
 
 This module implements a reverse-engineered client for the Ajax Systems cloud API.
-Based on the PHP library by igormukhingmailcom/ajax-systems-api.
+
+CREDITS & RESOURCES:
+====================
+- Original PHP library: https://github.com/igormukhingmailcom/ajax-systems-api
+  Author: Igor Mukhin (igormukhingmailcom)
+  License: MIT
+  
+- Jeedom Ajax plugin: https://github.com/Flobul/Jeedom-ajax
+  Author: Flobul
+  
+- Ajax Systems official: https://ajax.systems/
+- Ajax Enterprise API info: https://ajax.systems/blog/enterprise-api/
+- Ajax Cloud Signaling: https://ajax.systems/ajax-cloud-signaling/
 
 WARNING: This API was reported as "closed in 2018" but may still work.
 The API is not officially documented and may change without notice.
+Ajax Systems does not provide a public API for consumers.
 
-Endpoint source: https://github.com/igormukhingmailcom/ajax-systems-api
+API Base URL: https://app.ajax.systems
 """
 import asyncio
 import logging
