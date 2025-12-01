@@ -91,6 +91,7 @@ class AjaxCommand(StrEnum):
 
 
 # SIA event codes mapping
+# Based on SIA DC-09 standard + Ajax-specific codes
 SIA_EVENT_CODES: Final = {
     # Alarms
     "BA": "Burglar Alarm",
@@ -103,11 +104,25 @@ SIA_EVENT_CODES: Final = {
     "WR": "Water Alarm Restore",
     "TA": "Tamper Alarm",
     "TR": "Tamper Alarm Restore",
+    "MA": "Medical Alarm",
+    "MR": "Medical Alarm Restore",
+    "GA": "Gas Alarm",
+    "GR": "Gas Alarm Restore",
+    "HA": "Heat Alarm",
+    "HR": "Heat Alarm Restore",
+    "CA": "Smoke Alarm (CO)",
+    "CR": "Smoke Alarm Restore (CO)",
+    
     # Arm/Disarm
     "CL": "Closing (Armed)",
     "OP": "Opening (Disarmed)",
-    "NL": "Night Mode On",
+    "NL": "Night Mode On (Partial Arm)",
     "NR": "Night Mode Off",
+    "OG": "Open Area (Group Disarm)",
+    "CG": "Close Area (Group Arm)",
+    "CA": "Auto Arm Cancelled",
+    "CD": "Auto Close Deferred",
+    
     # Troubles
     "AT": "AC Trouble",
     "AR": "AC Restore",
@@ -115,12 +130,45 @@ SIA_EVENT_CODES: Final = {
     "YR": "Battery Restore",
     "YP": "Low Battery",
     "YQ": "Battery Restore",
-    # Communication
-    "RP": "Automatic Test",
+    "FT": "Fire Trouble",
+    "FJ": "Fire Trouble Restore",
+    "LT": "Communication Trouble",
+    "LR": "Communication Restore",
+    "YC": "Communication Battery Restore",
+    "YA": "Communication Battery Low",
+    "ET": "Expansion Trouble",
+    "ER": "Expansion Restore",
+    
+    # Communication / Test
+    "RP": "Automatic Test (Periodic Report)",
     "RX": "Request for Test",
-    # Sensors
+    "RU": "Program Mode Entry",
+    "RS": "Program Mode Exit",
+    "RT": "Communication Test",
+    
+    # Sensors / Zones
     "ZO": "Zone Open",
     "ZC": "Zone Closed",
+    "ZS": "Zone Short",
+    "ZT": "Zone Trouble",
+    "ZR": "Zone Restore",
+    "BB": "Zone Bypass",
+    "BU": "Zone Unbypass",
+    
+    # User events
+    "JA": "User on Premises",
+    "JH": "User Left Premises",
+    "JT": "User Access Denied",
+    "JS": "User Code Changed",
+    "JK": "User Tested",
+    
+    # System events
+    "LX": "Local Programming",
+    "LW": "Watch Mode",
+    "LS": "Supervision",
+    "LU": "Log Full",
+    "RY": "Module Added",
+    "RZ": "Module Removed",
 }
 
 # Device type to platform mapping

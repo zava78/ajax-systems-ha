@@ -33,17 +33,27 @@ from ..models import SiaEvent
 _LOGGER = logging.getLogger(__name__)
 
 # SIA message format regex
-# Format: [#ACCOUNT|CODE/ZONE]
+# Standard format: [#ACCOUNT|CODE/ZONE] or [#ACCOUNT|CODE]
 SIA_MESSAGE_PATTERN = re.compile(
     r'\[#(?P<account>\w+)\|'
     r'(?P<code>[A-Z]{2})'
     r'(?:/(?P<zone>\d+))?\]'
 )
 
-# Extended SIA DC-09 format
+# Ajax-specific SIA format: [#ACCOUNT|NriX/CODE_ZONE]
+# Examples: [#0001|Nri0/RP0000], [#0001|Nri1/NL501]
+AJAX_SIA_PATTERN = re.compile(
+    r'\[#(?P<account>\w+)\|'
+    r'Nri(?P<receiver>\d+)/'
+    r'(?P<code>[A-Z]{2})'
+    r'(?P<zone>\d*)\]'
+)
+
+# Extended SIA DC-09 format with header
+# Example: "SIA-DCS"3463L0#0001[#0001|Nri0/RP0000]
 SIA_DC09_PATTERN = re.compile(
-    r'"(?P<seq>\d+)"'
-    r'(?P<receiver>\d+)?'
+    r'"SIA-DCS"'
+    r'(?P<seq>\w+)'
     r'L(?P<line>\d+)'
     r'#(?P<account>\w+)'
     r'\[(?P<data>.*?)\]'
@@ -124,13 +134,35 @@ class SiaProtocol(asyncio.Protocol):
         """Handle a complete SIA message."""
         _LOGGER.debug("Received SIA message: %s", message)
         
-        # Try DC-09 format first
+        # Try Ajax-specific format first (most common for Ajax hubs)
+        # Example: 4747003B"SIA-DCS"3463L0#0001[#0001|Nri0/RP0000]_17:37:06,12-01-2025
+        ajax_match = AJAX_SIA_PATTERN.search(message)
+        if ajax_match:
+            event = self._parse_ajax_event(ajax_match)
+            if event:
+                # Extract sequence for ACK from full message
+                seq_match = re.search(r'"SIA-DCS"(\w+)L', message)
+                seq = seq_match.group(1) if seq_match else None
+                self._send_ack(seq)
+                self.event_callback(event)
+                return
+        
+        # Try standard DC-09 format
         match = SIA_DC09_PATTERN.search(message)
         if match:
             account = match.group("account")
             data = match.group("data")
             
-            # Parse the data portion
+            # Try Ajax format in data portion
+            ajax_data_match = AJAX_SIA_PATTERN.search(f"[{data}]")
+            if ajax_data_match:
+                event = self._parse_ajax_event(ajax_data_match)
+                if event:
+                    self._send_ack(match.group("seq"))
+                    self.event_callback(event)
+                    return
+            
+            # Try standard format in data portion
             data_match = SIA_MESSAGE_PATTERN.search(f"[#{account}|{data}]")
             if data_match:
                 event = self._parse_event(data_match)
@@ -139,7 +171,7 @@ class SiaProtocol(asyncio.Protocol):
                     self.event_callback(event)
                     return
         
-        # Try simple format
+        # Try simple standard format
         match = SIA_MESSAGE_PATTERN.search(message)
         if match:
             event = self._parse_event(match)
@@ -149,6 +181,42 @@ class SiaProtocol(asyncio.Protocol):
                 return
         
         _LOGGER.warning("Could not parse SIA message: %s", message)
+    
+    def _parse_ajax_event(self, match: re.Match) -> Optional[SiaEvent]:
+        """Parse an Ajax-specific SIA event."""
+        account = match.group("account")
+        code = match.group("code")
+        zone_str = match.group("zone")
+        receiver = match.group("receiver")
+        
+        # Parse zone - Ajax uses format like "501" where last digits are zone
+        zone = None
+        if zone_str:
+            # For codes like RP0000, the zone is 0
+            # For codes like NL501, extract the zone number
+            zone = int(zone_str) if zone_str else None
+        
+        # Validate account if configured
+        if self.config.account and account != self.config.account:
+            _LOGGER.debug(
+                "Ignoring event for account %s (expected %s)",
+                account,
+                self.config.account,
+            )
+            return None
+        
+        _LOGGER.info(
+            "Parsed Ajax SIA event: account=%s, code=%s, zone=%s, receiver=%s",
+            account, code, zone, receiver
+        )
+        
+        return SiaEvent(
+            account=account,
+            event_code=code,
+            zone=zone,
+            timestamp=datetime.now(),
+            raw_data=match.string,
+        )
     
     def _parse_event(self, match: re.Match) -> Optional[SiaEvent]:
         """Parse a SIA event from regex match."""
