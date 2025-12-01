@@ -53,9 +53,6 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
         # SIA receiver
         self._sia_receiver: Optional[SiaReceiver] = None
         self._use_sia = entry.data.get(CONF_USE_SIA, True)
-        
-        # Event listeners
-        self._listeners: list[callable] = []
     
     async def async_setup(self) -> bool:
         """Set up the coordinator."""
