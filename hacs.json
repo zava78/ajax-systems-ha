@@ -1,6 +1,9 @@
 {
   "name": "Ajax Systems",
+  "hacs": "1.6.0",
   "homeassistant": "2024.1.0",
   "render_readme": true,
-  "country": ["IT", "UA", "PL", "ES", "FR", "DE", "NL", "BE", "AT", "CH"]
+  "zip_release": false,
+  "filename": "ajax_systems.zip",
+  "content_in_root": false
 }
