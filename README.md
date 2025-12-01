@@ -1,8 +1,8 @@
 # Ajax Systems Home Assistant Integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/release/your-username/ajax-systems-ha.svg)](https://github.com/your-username/ajax-systems-ha/releases)
-[![License](https://img.shields.io/github/license/your-username/ajax-systems-ha.svg)](LICENSE)
+[![GitHub Release](https://img.shields.io/github/release/zava78/ajax-systems-ha.svg)](https://github.com/zava78/ajax-systems-ha/releases)
+[![License](https://img.shields.io/github/license/zava78/ajax-systems-ha.svg)](LICENSE)
 
 Custom Home Assistant integration for **Ajax Systems** security alarms.
 
@@ -192,7 +192,7 @@ automation:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/ajax-systems-ha.git
+git clone https://github.com/zava78/ajax-systems-ha.git
 cd ajax-systems-ha
 
 # Install dev dependencies
