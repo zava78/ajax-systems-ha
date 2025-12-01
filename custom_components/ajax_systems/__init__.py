@@ -23,10 +23,11 @@ Use at your own risk.
 from __future__ import annotations
 
 import logging
+import json
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import DOMAIN
 from .coordinator import AjaxDataCoordinator
@@ -63,6 +64,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Register update listener for config changes
     entry.async_on_unload(entry.add_update_listener(async_update_options))
+    
+    # Register diagnostic service
+    async def handle_diagnose(call: ServiceCall) -> None:
+        """Handle diagnose API service call."""
+        _LOGGER.info("Running Ajax API diagnostics...")
+        
+        for coord in hass.data[DOMAIN].values():
+            if hasattr(coord, 'cloud_api') and coord.cloud_api:
+                try:
+                    results = await coord.cloud_api.diagnose_api()
+                    _LOGGER.info("=== AJAX API DIAGNOSTICS ===")
+                    _LOGGER.info("Authenticated: %s", results.get("authenticated"))
+                    _LOGGER.info("Session ID: %s", results.get("session_id"))
+                    
+                    for endpoint, data in results.get("endpoints_tested", {}).items():
+                        _LOGGER.info("--- Endpoint: %s ---", endpoint)
+                        for key, value in data.items():
+                            _LOGGER.info("  %s: %s", key, value)
+                    
+                    # Also log to persistent notification
+                    await hass.services.async_call(
+                        "persistent_notification",
+                        "create",
+                        {
+                            "title": "Ajax API Diagnostics",
+                            "message": f"Check Home Assistant logs for full diagnostics.\n\nAuthenticated: {results.get('authenticated')}\nEndpoints tested: {len(results.get('endpoints_tested', {}))}",
+                            "notification_id": "ajax_diagnostics",
+                        }
+                    )
+                except Exception as e:
+                    _LOGGER.error("Diagnostics failed: %s", e)
+    
+    hass.services.async_register(DOMAIN, "diagnose_api", handle_diagnose)
     
     _LOGGER.info("Ajax Systems integration setup complete")
     return True

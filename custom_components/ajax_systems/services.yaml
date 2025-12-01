@@ -1,0 +1,3 @@
+diagnose_api:
+  name: Diagnose API
+  description: Run diagnostics on the Ajax Cloud API to test available endpoints and authentication.

@@ -253,25 +253,33 @@ class AjaxCloudApi:
     
     async def _get_csa_connection(self) -> None:
         """Establish CSA connection (required after login)."""
-        response = await self._request(
-            "POST",
-            self.ENDPOINTS["csa_connection"],
-        )
-        _LOGGER.debug("CSA connection response: %s", response)
+        try:
+            response = await self._request(
+                "POST",
+                self.ENDPOINTS["csa_connection"],
+            )
+            _LOGGER.debug("CSA connection response: %s", response)
+        except Exception as e:
+            _LOGGER.warning("CSA connection failed: %s (continuing anyway)", e)
     
     async def get_user_data(self) -> dict:
         """Get logged in user data."""
-        response = await self._request(
-            "GET",
-            self.ENDPOINTS["user_data"],
-        )
-        if "data" in response:
-            import json
-            try:
-                self._user_data = json.loads(response["data"])
-            except:
-                self._user_data = response["data"]
-        return self._user_data or {}
+        try:
+            response = await self._request(
+                "GET",
+                self.ENDPOINTS["user_data"],
+            )
+            _LOGGER.debug("User data response: %s", response)
+            if "data" in response:
+                import json
+                try:
+                    self._user_data = json.loads(response["data"]) if isinstance(response["data"], str) else response["data"]
+                except:
+                    self._user_data = response["data"]
+            return self._user_data or {}
+        except Exception as e:
+            _LOGGER.warning("Failed to get user data: %s", e)
+            return {}
     
     async def get_hubs(self) -> list[AjaxHub]:
         """Get list of hubs associated with account.
@@ -798,3 +806,68 @@ class AjaxCloudApi:
     def devices(self) -> dict[str, AjaxDevice]:
         """Get cached devices."""
         return self._devices
+
+    async def diagnose_api(self) -> dict:
+        """Run diagnostics on the API to find working endpoints.
+        
+        Returns detailed info about each endpoint tested.
+        """
+        results = {
+            "authenticated": self._authenticated,
+            "session_id": self._session_id[:20] + "..." if self._session_id else None,
+            "endpoints_tested": {},
+        }
+        
+        if not self._authenticated:
+            try:
+                await self.authenticate()
+                results["authenticated"] = True
+            except Exception as e:
+                results["auth_error"] = str(e)
+                return results
+        
+        # Test various endpoints
+        test_endpoints = [
+            ("user_data", "GET", "/SecurConfig/api/account/getUserData"),
+            ("hubs_data", "POST", "/SecurConfig/api/dashboard/getHubsData"),
+            ("objects_list", "POST", "/SecurConfig/api/dashboard/getObjectsList"),
+            ("dashboard", "GET", "/SecurConfig/api/dashboard"),
+            ("account_info", "GET", "/SecurConfig/api/account"),
+            ("events", "POST", "/SecurConfig/api/dashboard/getEvents"),
+        ]
+        
+        for name, method, path in test_endpoints:
+            try:
+                async with self._session.request(
+                    method,
+                    f"{self.BASE_URL}{path}",
+                    headers=self.HEADERS,
+                    ssl=False,
+                ) as resp:
+                    status = resp.status
+                    content_type = resp.headers.get("Content-Type", "")
+                    text = await resp.text()
+                    
+                    results["endpoints_tested"][name] = {
+                        "status": status,
+                        "content_type": content_type,
+                        "response_length": len(text),
+                        "response_preview": text[:200] if text else "(empty)",
+                        "has_data": bool(text) and status == 200,
+                    }
+                    
+                    # Try to parse as JSON
+                    if text and "json" in content_type.lower():
+                        try:
+                            import json
+                            data = json.loads(text)
+                            results["endpoints_tested"][name]["json_keys"] = list(data.keys()) if isinstance(data, dict) else f"array[{len(data)}]"
+                        except:
+                            pass
+                            
+            except Exception as e:
+                results["endpoints_tested"][name] = {
+                    "error": str(e),
+                }
+        
+        return results
