@@ -170,23 +170,38 @@ class AjaxCloudApi:
             _LOGGER.debug("API request: %s %s", method, url)
             
             async with session.request(method, url, **request_kwargs) as response:
-                _LOGGER.debug("API response status: %s", response.status)
+                _LOGGER.debug("API response: status=%s, content-type=%s", 
+                             response.status, response.content_type)
+                
+                content = await response.text()
+                _LOGGER.debug("API response body (first 500 chars): %s", 
+                             content[:500] if content else "(empty)")
+                
+                # Try to parse as JSON first
+                json_data = None
+                if content:
+                    try:
+                        import json
+                        json_data = json.loads(content)
+                    except json.JSONDecodeError:
+                        pass
                 
                 # Login returns 302 redirect on success
                 if response.status in [200, 302]:
-                    try:
-                        content = await response.text()
-                        if content:
-                            return {"requestResult": True, "data": content}
-                        return {"requestResult": True}
-                    except:
-                        return {"requestResult": True}
+                    if json_data:
+                        # API returned JSON - use it directly
+                        if isinstance(json_data, dict):
+                            json_data["requestResult"] = json_data.get("requestResult", True)
+                            return json_data
+                        return {"requestResult": True, "data": json_data}
+                    elif content:
+                        return {"requestResult": True, "data": content}
+                    return {"requestResult": True}
                 
                 if response.status == 401 or response.status == 403:
-                    raise AjaxAuthError("Authentication failed")
+                    raise AjaxAuthError(f"Authentication failed: {content}")
                 
-                text = await response.text()
-                raise AjaxApiError(f"API error {response.status}: {text}")
+                raise AjaxApiError(f"API error {response.status}: {content}")
                 
         except aiohttp.ClientError as err:
             raise AjaxConnectionError(f"Connection error: {err}") from err
@@ -273,51 +288,66 @@ class AjaxCloudApi:
             )
             
             hubs = []
+            
+            # The response could have data in different places
+            # Try 'data' key first, then look at root level
             data = response.get("data")
+            
+            # If data is empty but response has other keys, use response itself
+            if not data and len(response) > 1:
+                # Remove our added keys and use the rest
+                data = {k: v for k, v in response.items() 
+                       if k not in ["requestResult", "data"]}
+                if data:
+                    _LOGGER.debug("Using response root as hub data")
             
             # Safe logging of data
             if data:
-                data_preview = str(data)[:500] if len(str(data)) > 500 else str(data)
-                _LOGGER.debug("Raw hubs data: %s", data_preview)
+                data_str = str(data)
+                data_preview = data_str[:500] if len(data_str) > 500 else data_str
+                _LOGGER.debug("Hub data to parse: %s", data_preview)
             else:
-                _LOGGER.warning("No hub data received from API")
+                _LOGGER.warning("No hub data received from API. Full response: %s", response)
+                return []
             
-            if data:
-                import json
+            # Parse the data
+            hub_list = None
+            if isinstance(data, str):
+                if not data.strip():
+                    _LOGGER.warning("Empty string received as hub data")
+                    return []
                 try:
-                    if isinstance(data, str):
-                        hub_list = json.loads(data)
-                    elif isinstance(data, (list, dict)):
-                        hub_list = data
-                    else:
-                        _LOGGER.warning("Unexpected data type: %s", type(data))
-                        hub_list = []
-                    _LOGGER.debug("Parsed hub data type: %s", type(hub_list))
+                    import json
+                    hub_list = json.loads(data)
                 except json.JSONDecodeError as e:
-                    _LOGGER.error("Failed to parse hub data as JSON: %s", e)
-                    hub_list = []
-                except Exception as e:
-                    _LOGGER.error("Failed to parse hub data: %s", e)
-                    hub_list = []
-                
-                if isinstance(hub_list, list):
-                    for hub_data in hub_list:
-                        if isinstance(hub_data, dict):
-                            _LOGGER.debug("Hub data keys: %s", list(hub_data.keys()))
-                            hub = self._parse_hub(hub_data)
-                            self._hubs[hub.device_id] = hub
-                            hubs.append(hub)
-                            # Also parse devices from hub data
-                            self._parse_devices_from_hub(hub_data, hub.device_id)
-                        else:
-                            _LOGGER.warning("Hub data item is not a dict: %s", type(hub_data))
-                elif isinstance(hub_list, dict):
-                    _LOGGER.debug("Hub data keys: %s", list(hub_list.keys()))
-                    hub = self._parse_hub(hub_list)
-                    self._hubs[hub.device_id] = hub
-                    hubs.append(hub)
-                    # Also parse devices from hub data
-                    self._parse_devices_from_hub(hub_list, hub.device_id)
+                    _LOGGER.error("Failed to parse hub data as JSON: %s. Data: %s", e, data[:200])
+                    return []
+            elif isinstance(data, (list, dict)):
+                hub_list = data
+            else:
+                _LOGGER.warning("Unexpected data type: %s", type(data))
+                return []
+            
+            _LOGGER.debug("Parsed hub data type: %s", type(hub_list))
+            
+            if isinstance(hub_list, list):
+                for hub_data in hub_list:
+                    if isinstance(hub_data, dict):
+                        _LOGGER.debug("Hub data keys: %s", list(hub_data.keys()))
+                        hub = self._parse_hub(hub_data)
+                        self._hubs[hub.device_id] = hub
+                        hubs.append(hub)
+                        # Also parse devices from hub data
+                        self._parse_devices_from_hub(hub_data, hub.device_id)
+                    else:
+                        _LOGGER.warning("Hub data item is not a dict: %s", type(hub_data))
+            elif isinstance(hub_list, dict):
+                _LOGGER.debug("Hub data keys: %s", list(hub_list.keys()))
+                hub = self._parse_hub(hub_list)
+                self._hubs[hub.device_id] = hub
+                hubs.append(hub)
+                # Also parse devices from hub data
+                self._parse_devices_from_hub(hub_list, hub.device_id)
             
             _LOGGER.info("Found %d hubs and %d devices", len(hubs), len(self._devices))
             return hubs
