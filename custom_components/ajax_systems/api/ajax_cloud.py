@@ -275,29 +275,65 @@ class AjaxCloudApi:
             hubs = []
             data = response.get("data")
             
+            _LOGGER.debug("Raw hubs data: %s", data[:500] if data and len(data) > 500 else data)
+            
             if data:
                 import json
                 try:
                     hub_list = json.loads(data) if isinstance(data, str) else data
-                except:
+                    _LOGGER.debug("Parsed hub data type: %s", type(hub_list))
+                except Exception as e:
+                    _LOGGER.error("Failed to parse hub data: %s", e)
                     hub_list = []
                 
                 if isinstance(hub_list, list):
                     for hub_data in hub_list:
+                        _LOGGER.debug("Hub data keys: %s", hub_data.keys() if isinstance(hub_data, dict) else "not a dict")
                         hub = self._parse_hub(hub_data)
                         self._hubs[hub.device_id] = hub
                         hubs.append(hub)
+                        # Also parse devices from hub data
+                        self._parse_devices_from_hub(hub_data, hub.device_id)
                 elif isinstance(hub_list, dict):
+                    _LOGGER.debug("Hub data keys: %s", hub_list.keys())
                     hub = self._parse_hub(hub_list)
                     self._hubs[hub.device_id] = hub
                     hubs.append(hub)
+                    # Also parse devices from hub data
+                    self._parse_devices_from_hub(hub_list, hub.device_id)
             
-            _LOGGER.info("Found %d hubs", len(hubs))
+            _LOGGER.info("Found %d hubs and %d devices", len(hubs), len(self._devices))
             return hubs
             
         except AjaxApiError as err:
             _LOGGER.error("Failed to get hubs: %s", err)
             return list(self._hubs.values())
+    
+    def _parse_devices_from_hub(self, hub_data: dict, hub_id: str) -> None:
+        """Extract and parse devices from hub data."""
+        # Try different possible keys for devices in hub data
+        device_keys = ["devices", "devicesList", "sensors", "zones", "objects"]
+        
+        for key in device_keys:
+            if key in hub_data and hub_data[key]:
+                devices_data = hub_data[key]
+                _LOGGER.debug("Found devices under key '%s': %d items", key, 
+                            len(devices_data) if isinstance(devices_data, list) else 1)
+                
+                if isinstance(devices_data, list):
+                    for device_data in devices_data:
+                        device = self._parse_device(device_data, hub_id)
+                        if device:
+                            self._devices[device.device_id] = device
+                            _LOGGER.debug("Added device: %s (%s)", device.name, device.device_type)
+                elif isinstance(devices_data, dict):
+                    # Could be a dict with device IDs as keys
+                    for dev_id, device_data in devices_data.items():
+                        if isinstance(device_data, dict):
+                            device_data["id"] = dev_id
+                            device = self._parse_device(device_data, hub_id)
+                            if device:
+                                self._devices[device.device_id] = device
     
     async def get_hub_info(self, hub_id: str) -> Optional[AjaxHub]:
         """Get detailed hub information."""

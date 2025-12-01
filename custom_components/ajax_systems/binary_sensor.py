@@ -36,30 +36,58 @@ async def async_setup_entry(
     """Set up Ajax binary sensors."""
     coordinator: AjaxDataCoordinator = hass.data[DOMAIN][entry.entry_id]
     
-    entities: list[BinarySensorEntity] = []
+    # Track which devices we've already added
+    added_devices: set[str] = set()
     
-    for device in coordinator.data.devices.values():
-        if isinstance(device, AjaxDoorSensor):
-            entities.append(AjaxDoorBinarySensor(coordinator, device))
-            if device.tamper:
-                entities.append(AjaxTamperSensor(coordinator, device))
-        elif isinstance(device, AjaxMotionSensor):
-            entities.append(AjaxMotionBinarySensor(coordinator, device))
-            if device.tamper:
-                entities.append(AjaxTamperSensor(coordinator, device))
-        elif isinstance(device, AjaxLeakSensor):
-            entities.append(AjaxLeakBinarySensor(coordinator, device))
-        elif isinstance(device, AjaxFireSensor):
-            entities.append(AjaxSmokeBinarySensor(coordinator, device))
-            entities.append(AjaxHeatBinarySensor(coordinator, device))
-        elif isinstance(device, AjaxGlassSensor):
-            entities.append(AjaxGlassBreakBinarySensor(coordinator, device))
+    def add_entities_for_devices() -> None:
+        """Add entities for any new devices."""
+        entities: list[BinarySensorEntity] = []
+        
+        for device in coordinator.data.devices.values():
+            if device.device_id in added_devices:
+                continue
+                
+            added_devices.add(device.device_id)
+            _LOGGER.debug("Adding binary sensor for device: %s (%s)", device.name, device.device_type)
+            
+            if isinstance(device, AjaxDoorSensor):
+                entities.append(AjaxDoorBinarySensor(coordinator, device))
+                if device.tamper:
+                    entities.append(AjaxTamperSensor(coordinator, device))
+            elif isinstance(device, AjaxMotionSensor):
+                entities.append(AjaxMotionBinarySensor(coordinator, device))
+                if device.tamper:
+                    entities.append(AjaxTamperSensor(coordinator, device))
+            elif isinstance(device, AjaxLeakSensor):
+                entities.append(AjaxLeakBinarySensor(coordinator, device))
+            elif isinstance(device, AjaxFireSensor):
+                entities.append(AjaxSmokeBinarySensor(coordinator, device))
+                entities.append(AjaxHeatBinarySensor(coordinator, device))
+            elif isinstance(device, AjaxGlassSensor):
+                entities.append(AjaxGlassBreakBinarySensor(coordinator, device))
+        
+        if entities:
+            _LOGGER.info("Adding %d new binary sensor entities", len(entities))
+            async_add_entities(entities)
+    
+    # Add initial devices
+    add_entities_for_devices()
     
     # Add hub connection sensor
     if coordinator.data.hub:
-        entities.append(AjaxHubConnectionSensor(coordinator))
+        async_add_entities([AjaxHubConnectionSensor(coordinator)])
     
-    async_add_entities(entities)
+    # Listen for new devices from coordinator updates
+    @callback
+    def async_check_new_devices() -> None:
+        """Check for new devices when coordinator updates."""
+        add_entities_for_devices()
+    
+    entry.async_on_unload(
+        coordinator.async_add_listener(async_check_new_devices)
+    )
+    
+    _LOGGER.info("Binary sensor platform setup complete. %d devices tracked.", len(added_devices))
 
 
 class AjaxBaseBinarySensor(CoordinatorEntity[AjaxDataCoordinator], BinarySensorEntity):

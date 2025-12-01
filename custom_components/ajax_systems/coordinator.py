@@ -171,7 +171,8 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
     @callback
     def _handle_sia_event(self, event: SiaEvent) -> None:
         """Handle incoming SIA event."""
-        _LOGGER.debug("Processing SIA event: %s", event)
+        _LOGGER.info("Processing SIA event: code=%s, zone=%s, account=%s", 
+                     event.event_code, event.zone, event.account)
         
         # Update alarm state
         new_state = sia_event_to_alarm_state(event)
@@ -179,21 +180,32 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
             self.data.hub.state = new_state
             self.data.hub.last_event = event.event_code
             self.data.hub.last_event_time = event.timestamp
+            _LOGGER.info("Hub state changed to: %s", new_state)
         
         # Update sensor state
         sensor_update = sia_event_to_sensor_state(event)
         if sensor_update:
             zone = sensor_update.get("zone")
             if zone:
-                # Find device by zone or create placeholder
                 device_id = f"zone_{zone}"
+                sensor_type = sensor_update.get("type", "unknown")
+                
+                # Create device if it doesn't exist
+                if device_id not in self.data.devices:
+                    _LOGGER.info("Creating new device for zone %s (type: %s)", zone, sensor_type)
+                    device = self._create_device_from_sia(device_id, zone, sensor_type)
+                    if device:
+                        self.data.devices[device_id] = device
+                
+                # Update existing device
                 if device_id in self.data.devices:
                     device = self.data.devices[device_id]
-                    # Update device state based on event type
                     if hasattr(device, "is_open") and "is_open" in sensor_update:
                         device.is_open = sensor_update["is_open"]
+                        _LOGGER.debug("Zone %s: is_open = %s", zone, device.is_open)
                     if hasattr(device, "motion_detected") and "motion_detected" in sensor_update:
                         device.motion_detected = sensor_update["motion_detected"]
+                        _LOGGER.debug("Zone %s: motion = %s", zone, device.motion_detected)
                     if hasattr(device, "leak_detected") and "leak_detected" in sensor_update:
                         device.leak_detected = sensor_update["leak_detected"]
                     if hasattr(device, "smoke_detected") and "smoke_detected" in sensor_update:
@@ -203,6 +215,60 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
         
         # Notify listeners
         self.async_set_updated_data(self.data)
+    
+    def _create_device_from_sia(self, device_id: str, zone: str, sensor_type: str) -> Optional[AjaxDevice]:
+        """Create a device based on SIA event type."""
+        from .const import AjaxDeviceType
+        from .models import AjaxDoorSensor, AjaxMotionSensor, AjaxLeakSensor, AjaxFireSensor
+        
+        hub_id = self.data.hub.device_id if self.data.hub else "unknown"
+        name = f"Zone {zone}"
+        
+        if sensor_type == "door":
+            return AjaxDoorSensor(
+                device_id=device_id,
+                device_type=AjaxDeviceType.DOOR_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                is_open=False,
+            )
+        elif sensor_type == "motion":
+            return AjaxMotionSensor(
+                device_id=device_id,
+                device_type=AjaxDeviceType.MOTION_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                motion_detected=False,
+            )
+        elif sensor_type == "leak":
+            return AjaxLeakSensor(
+                device_id=device_id,
+                device_type=AjaxDeviceType.LEAKS_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                leak_detected=False,
+            )
+        elif sensor_type == "fire":
+            return AjaxFireSensor(
+                device_id=device_id,
+                device_type=AjaxDeviceType.FIRE_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                smoke_detected=False,
+                heat_detected=False,
+                co_detected=False,
+            )
+        elif sensor_type == "tamper":
+            # For tamper, we create a generic device
+            return AjaxDevice(
+                device_id=device_id,
+                device_type=AjaxDeviceType.MOTION_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                tamper=True,
+            )
+        
+        return None
     
     async def async_arm(self) -> bool:
         """Arm the alarm."""
