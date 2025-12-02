@@ -1,9 +1,10 @@
 {
-  "name": "Ajax Systems",
+  "name": "Ajax Systems Alarm",
   "hacs": "1.6.0",
   "homeassistant": "2024.1.0",
   "render_readme": true,
   "zip_release": false,
   "filename": "ajax_systems.zip",
-  "content_in_root": false
+  "content_in_root": false,
+  "country": ["IT", "UA", "PL", "ES", "FR", "DE", "GB", "NL", "BE"]
 }
