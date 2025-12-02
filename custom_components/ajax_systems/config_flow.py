@@ -28,6 +28,11 @@ from .const import (
     CONF_USE_CLOUD,
     CONF_USE_MQTT,
     CONF_USE_SIA,
+    CONF_USE_JEEDOM_PROXY,
+    CONF_JEEDOM_USERNAME,
+    CONF_JEEDOM_PASSWORD,
+    CONF_AJAX_USERNAME,
+    CONF_AJAX_PASSWORD,
     DEFAULT_MQTT_PREFIX,
     DEFAULT_SIA_PORT,
     DOMAIN,
@@ -59,6 +64,8 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_sia()
             elif self._integration_type == "cloud":
                 return await self.async_step_cloud()
+            elif self._integration_type == "jeedom":
+                return await self.async_step_jeedom()
             elif self._integration_type == "mqtt":
                 return await self.async_step_mqtt()
         
@@ -67,13 +74,15 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required("integration_type", default="sia"): vol.In({
                     "sia": "SIA Protocol (Recommended - Local)",
-                    "cloud": "⚠️ Ajax Cloud API (NOT WORKING - Closed in 2018)",
+                    "jeedom": "🔌 Jeedom Cloud Proxy (Full Control)",
+                    "cloud": "⚠️ Ajax Cloud API (NOT WORKING)",
                     "mqtt": "MQTT Bridge (Jeedom)",
                 }),
             }),
             errors=errors,
             description_placeholders={
                 "sia_description": "Receive alarm events via SIA DC-09 protocol",
+                "jeedom_description": "Full control via Jeedom Market account",
                 "cloud_description": "The Cloud API was closed by Ajax in 2018",
                 "mqtt_description": "Use Jeedom MQTT bridge as fallback",
             },
@@ -213,6 +222,112 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "api_note": "⚠️ WARNING: The Ajax Cloud API was CLOSED in 2018 and no longer works. Use SIA Protocol instead. The Enterprise API is only available to commercial partners.",
+            },
+        )
+    
+    async def async_step_jeedom(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure Jeedom Cloud Proxy."""
+        errors: dict[str, str] = {}
+        
+        if user_input is not None:
+            jeedom_username = user_input.get(CONF_JEEDOM_USERNAME, "")
+            jeedom_password = user_input.get(CONF_JEEDOM_PASSWORD, "")
+            ajax_username = user_input.get(CONF_AJAX_USERNAME, "")
+            ajax_password = user_input.get(CONF_AJAX_PASSWORD, "")
+            
+            # Try to authenticate
+            try:
+                from .api.jeedom_proxy import (
+                    JeedomAjaxProxy,
+                    JeedomAuthError,
+                    JeedomConnectionError,
+                )
+                
+                proxy = JeedomAjaxProxy(
+                    jeedom_username=jeedom_username,
+                    jeedom_password=jeedom_password,
+                    ajax_username=ajax_username,
+                    ajax_password=ajax_password,
+                )
+                
+                try:
+                    await proxy.authenticate()
+                    hubs = await proxy.get_hubs()
+                    _LOGGER.info("Jeedom Proxy: Found %d hubs", len(hubs))
+                    
+                    if not hubs:
+                        errors["base"] = "no_hubs"
+                        
+                except JeedomAuthError as err:
+                    _LOGGER.error("Jeedom auth failed: %s", err)
+                    errors["base"] = "invalid_jeedom_auth"
+                except JeedomConnectionError as err:
+                    _LOGGER.error("Jeedom connection error: %s", err)
+                    errors["base"] = "cannot_connect"
+                except Exception as err:
+                    _LOGGER.error("Jeedom error: %s", err)
+                    errors["base"] = "unknown"
+                finally:
+                    await proxy.close()
+                    
+            except ImportError as err:
+                _LOGGER.error("Failed to import Jeedom proxy: %s", err)
+                errors["base"] = "unknown"
+            
+            if not errors:
+                self._data = {
+                    CONF_USE_SIA: user_input.get(CONF_USE_SIA, True),
+                    CONF_USE_CLOUD: False,
+                    CONF_USE_MQTT: False,
+                    CONF_USE_JEEDOM_PROXY: True,
+                    CONF_JEEDOM_USERNAME: jeedom_username,
+                    CONF_JEEDOM_PASSWORD: jeedom_password,
+                    CONF_AJAX_USERNAME: ajax_username,
+                    CONF_AJAX_PASSWORD: ajax_password,
+                    CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
+                    CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
+                    CONF_SIA_ACCOUNT: user_input.get(CONF_SIA_ACCOUNT, "AAA"),
+                }
+                
+                await self.async_set_unique_id(f"ajax_jeedom_{ajax_username}")
+                self._abort_if_unique_id_configured()
+                
+                return self.async_create_entry(
+                    title=f"Ajax via Jeedom ({ajax_username})",
+                    data=self._data,
+                )
+        
+        return self.async_show_form(
+            step_id="jeedom",
+            data_schema=vol.Schema({
+                vol.Required(CONF_JEEDOM_USERNAME): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.EMAIL)
+                ),
+                vol.Required(CONF_JEEDOM_PASSWORD): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                ),
+                vol.Required(CONF_AJAX_USERNAME): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.EMAIL)
+                ),
+                vol.Required(CONF_AJAX_PASSWORD): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                ),
+                vol.Required(CONF_HUB_ID, default="ajax_hub"): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
+                vol.Optional(CONF_USE_SIA, default=True): BooleanSelector(),
+                vol.Optional(CONF_SIA_PORT, default=DEFAULT_SIA_PORT): NumberSelector(
+                    NumberSelectorConfig(min=1, max=65535, step=1, mode="box")
+                ),
+                vol.Optional(CONF_SIA_ACCOUNT, default="AAA"): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
+            }),
+            errors=errors,
+            description_placeholders={
+                "jeedom_note": "Requires a Jeedom Market account (market.jeedom.com). This uses the Jeedom cloud as a proxy to control your Ajax system.",
             },
         )
     

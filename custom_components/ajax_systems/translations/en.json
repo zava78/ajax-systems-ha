@@ -64,14 +64,40 @@
           "use_sia": "Enable SIA receiver for direct hub events",
           "sia_port": "Port to listen for SIA events"
         }
+      },
+      "jeedom": {
+        "title": "Jeedom Cloud Proxy Configuration",
+        "description": "Use the Jeedom Market cloud as a proxy to control your Ajax system. This provides FULL CONTROL including arm/disarm. Requires a Jeedom Market account.",
+        "data": {
+          "jeedom_username": "Jeedom Market Email",
+          "jeedom_password": "Jeedom Market Password",
+          "ajax_username": "Ajax App Email",
+          "ajax_password": "Ajax App Password",
+          "hub_id": "Hub ID",
+          "use_sia": "Also enable SIA receiver (recommended)",
+          "sia_port": "SIA Port",
+          "sia_account": "Account Code"
+        },
+        "data_description": {
+          "jeedom_username": "Your Jeedom Market email (market.jeedom.com)",
+          "jeedom_password": "Your Jeedom Market password",
+          "ajax_username": "Your Ajax Systems app email",
+          "ajax_password": "Your Ajax Systems app password",
+          "hub_id": "Unique identifier for your hub",
+          "use_sia": "Enable SIA for faster real-time events",
+          "sia_port": "Port to listen for SIA events",
+          "sia_account": "Account code configured in your Ajax Hub"
+        }
       }
     },
     "error": {
       "cloud_api_closed": "The Ajax Cloud API was closed in 2018 and no longer works. Please use SIA Protocol instead.",
       "invalid_auth": "Invalid username or password. Check your Ajax app credentials.",
-      "cannot_connect": "Failed to connect to Ajax Cloud (app.ajax.systems). Check your internet connection.",
+      "invalid_jeedom_auth": "Invalid Jeedom Market credentials. Check your market.jeedom.com login.",
+      "no_hubs": "No Ajax hubs found. Check your Ajax app credentials.",
+      "cannot_connect": "Failed to connect. Check your internet connection.",
       "auth_failed": "Authentication failed. Check your credentials.",
-      "connection_failed": "Failed to connect to Ajax Cloud.",
+      "connection_failed": "Failed to connect.",
       "invalid_port": "Invalid port number.",
       "port_in_use": "Port is already in use.",
       "unknown": "An unexpected error occurred. Check the logs for details."

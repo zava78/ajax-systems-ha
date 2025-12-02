@@ -17,6 +17,13 @@ CONF_MQTT_TOPIC_PREFIX: Final = "mqtt_topic_prefix"
 CONF_MQTT_PREFIX: Final = "mqtt_prefix"
 CONF_SIA_ENCRYPTION_KEY: Final = "sia_encryption_key"
 
+# Jeedom Proxy configuration
+CONF_USE_JEEDOM_PROXY: Final = "use_jeedom_proxy"
+CONF_JEEDOM_USERNAME: Final = "jeedom_username"
+CONF_JEEDOM_PASSWORD: Final = "jeedom_password"
+CONF_AJAX_USERNAME: Final = "ajax_username"
+CONF_AJAX_PASSWORD: Final = "ajax_password"
+
 # Default values
 DEFAULT_SIA_PORT: Final = 2410
 DEFAULT_MQTT_TOPIC_PREFIX: Final = "jeedom/cmd"

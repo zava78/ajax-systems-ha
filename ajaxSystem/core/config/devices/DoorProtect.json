@@ -1,0 +1,107 @@
+{
+  "name" : "Door Protect",
+  "configuration" : {
+    "battery_type" : "1xCR123A"
+  },
+  "commands" : [
+    {
+      "name": "Etat",
+      "type": "info",
+      "subtype": "string",
+      "isVisible": 0,
+      "isHistorized": 0,
+      "logicalId": "state"
+    },
+    {
+      "name": "Source evenement",
+      "type": "info",
+      "subtype": "string",
+      "isVisible": 0,
+      "isHistorized": 0,
+      "logicalId": "sourceObjectName"
+    },
+    {
+      "name": "Evenement",
+      "type": "info",
+      "subtype": "string",
+      "isVisible": 0,
+      "isHistorized": 0,
+      "logicalId": "event"
+    },
+    {
+      "name": "Code evenement",
+      "type": "info",
+      "subtype": "string",
+      "isVisible": 0,
+      "isHistorized": 0,
+      "logicalId": "eventCode"
+    },
+    {
+      "name": "Ouverture",
+      "type": "info",
+      "subtype": "binary",
+      "isVisible": 1,
+      "isHistorized": 1,
+      "logicalId": "reedClosed",
+      "generic_type": "OPENING",
+      "template" : {
+        "dashboard" : "door",
+        "mobile" : "door"
+      },
+      "configuration": {
+        "repeatEventManagement": "never"
+      }
+    },
+    {
+      "name": "Contacteur",
+      "type": "info",
+      "subtype": "binary",
+      "isVisible": 1,
+      "isHistorized": 0,
+      "logicalId": "extraContactClosed",
+      "configuration": {
+        "repeatEventManagement": "never"
+      }
+    },
+    {
+      "name": "Température",
+      "type": "info",
+      "subtype": "numeric",
+      "isVisible": 1,
+      "isHistorized": 1,
+      "logicalId": "temperature",
+      "generic_type": "TEMPERATURE",
+      "unite" : "°C"
+    },
+    {
+      "name": "Trafiqué",
+      "type": "info",
+      "subtype": "binary",
+      "isVisible": 0,
+      "isHistorized": 0,
+      "logicalId": "tampered",
+      "configuration": {
+        "repeatEventManagement": "never"
+      }
+    },
+    {
+      "name": "En ligne",
+      "type": "info",
+      "subtype": "binary",
+      "isVisible": 0,
+      "isHistorized": 0,
+      "logicalId": "online",
+      "configuration": {
+        "repeatEventManagement": "never"
+      }
+    },
+    {
+      "name": "Signal",
+      "type": "info",
+      "subtype": "string",
+      "isVisible": 0,
+      "isHistorized": 0,
+      "logicalId": "signalLevel"
+    }
+  ]
+}

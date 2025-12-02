@@ -64,14 +64,40 @@
           "use_sia": "Abilita ricevitore SIA per eventi diretti dall'hub",
           "sia_port": "Porta per ricevere eventi SIA"
         }
+      },
+      "jeedom": {
+        "title": "Configurazione Proxy Jeedom Cloud",
+        "description": "Usa il cloud Jeedom Market come proxy per controllare il tuo sistema Ajax. Fornisce CONTROLLO COMPLETO incluso arm/disarm. Richiede un account Jeedom Market.",
+        "data": {
+          "jeedom_username": "Email Jeedom Market",
+          "jeedom_password": "Password Jeedom Market",
+          "ajax_username": "Email App Ajax",
+          "ajax_password": "Password App Ajax",
+          "hub_id": "ID Hub",
+          "use_sia": "Abilita anche ricevitore SIA (consigliato)",
+          "sia_port": "Porta SIA",
+          "sia_account": "Codice Account"
+        },
+        "data_description": {
+          "jeedom_username": "La tua email Jeedom Market (market.jeedom.com)",
+          "jeedom_password": "La tua password Jeedom Market",
+          "ajax_username": "La tua email dell'app Ajax Systems",
+          "ajax_password": "La tua password dell'app Ajax Systems",
+          "hub_id": "Identificativo univoco per il tuo hub",
+          "use_sia": "Abilita SIA per eventi in tempo reale più veloci",
+          "sia_port": "Porta per ricevere eventi SIA",
+          "sia_account": "Codice account configurato nel tuo Ajax Hub"
+        }
       }
     },
     "error": {
       "cloud_api_closed": "L'API Cloud di Ajax è stata chiusa nel 2018 e non funziona più. Usa il Protocollo SIA.",
       "invalid_auth": "Username o password non validi. Controlla le credenziali dell'app Ajax.",
-      "cannot_connect": "Impossibile connettersi a Ajax Cloud (app.ajax.systems). Verifica la connessione internet.",
+      "invalid_jeedom_auth": "Credenziali Jeedom Market non valide. Controlla il tuo login su market.jeedom.com.",
+      "no_hubs": "Nessun hub Ajax trovato. Controlla le credenziali dell'app Ajax.",
+      "cannot_connect": "Impossibile connettersi. Verifica la connessione internet.",
       "auth_failed": "Autenticazione fallita. Controlla le tue credenziali.",
-      "connection_failed": "Impossibile connettersi a Ajax Cloud.",
+      "connection_failed": "Impossibile connettersi.",
       "invalid_port": "Numero di porta non valido.",
       "port_in_use": "La porta è già in uso.",
       "unknown": "Si è verificato un errore imprevisto. Controlla i log per i dettagli."

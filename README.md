@@ -15,11 +15,15 @@ This is an **unofficial** integration. Ajax Systems does not provide a public AP
 | Method | Status | Description |
 |--------|--------|-------------|
 | **SIA DC-09 Protocol** | ✅ **Recommended** | Standard security protocol, local communication |
+| **Jeedom Cloud Proxy** | ✅ **Full Control** | Uses Jeedom Market as proxy, arm/disarm support |
 | **MQTT Bridge** | ✅ Works | Via Jeedom plugin |
 | **Cloud API** | ❌ **Not Available** | Was closed in 2018 |
 | **Enterprise API** | ❌ Partners Only | Requires commercial partnership |
 
-**Note:** The official [SIA integration](https://www.home-assistant.io/integrations/sia/) in Home Assistant already supports Ajax Systems. This custom integration provides additional features like device-specific entities and enhanced status information.
+**Note:** The [SIA integration](https://www.home-assistant.io/integrations/sia/) in Home Assistant already supports Ajax Systems for events. This custom integration adds:
+- Full arm/disarm control via Jeedom proxy
+- Device-specific entities
+- Enhanced status information
 
 ## Features
 
@@ -107,7 +111,22 @@ Requires Jeedom with the Ajax plugin running and publishing to MQTT.
 
 ⚠️ **The Ajax Cloud API was closed in 2018** and is no longer functional. The Enterprise API exists but is only available to commercial partners serving thousands of systems.
 
-For home users, SIA DC-09 is the only supported method.
+For home users, use **Jeedom Cloud Proxy** (requires Jeedom Market account) or **SIA DC-09** for local-only operation.
+
+### Jeedom Cloud Proxy (Full Control)
+
+This method provides **FULL CONTROL** of your Ajax system including arm/disarm. It uses the Jeedom Market cloud as a proxy.
+
+**Requirements:**
+- A free Jeedom Market account (register at market.jeedom.com)
+- Your Ajax app credentials
+
+1. Go to **Settings** → **Devices & Services** → **Add Integration**
+2. Search for "Ajax Systems"
+3. Select "Jeedom Cloud Proxy (Full Control)"
+4. Enter your Jeedom Market credentials
+5. Enter your Ajax app credentials
+6. Optionally enable SIA for faster real-time events
 
 ## Services
 
