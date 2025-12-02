@@ -1,16 +1,17 @@
 """Ajax Systems API client via Jeedom Cloud Proxy.
 
 This module provides access to Ajax Systems devices through the Jeedom Market
-cloud proxy. This requires valid Jeedom Market credentials.
+cloud proxy. This requires:
+1. A working Jeedom installation with the ajaxSystem plugin installed
+2. Valid Jeedom Market credentials
+3. Your Ajax Systems app credentials configured in Jeedom
 
-IMPORTANT: This uses the Jeedom cloud infrastructure. You need:
-1. A Jeedom Market account (market.jeedom.com)
-2. Your Ajax Systems app credentials
+IMPORTANT: This proxy service is provided by Jeedom infrastructure and requires
+an active Jeedom installation. The cloud acts as a relay between Home Assistant
+and Ajax Systems API.
 
-The Jeedom cloud acts as a proxy to the Ajax API, providing:
-- Authentication handling
-- Token refresh
-- Event callbacks (webhooks)
+Alternative: If you don't have Jeedom, use SIA DC-09 protocol for local 
+communication (events only, no control commands).
 
 CREDITS:
 - Based on Jeedom ajaxSystem plugin by Jeedom SAS
@@ -34,6 +35,8 @@ from ..const import API_TIMEOUT
 _LOGGER = logging.getLogger(__name__)
 
 # Jeedom Cloud endpoints
+# NOTE: The actual URL comes from Jeedom's service::cloud::url config
+# Default is market.jeedom.com but could vary
 JEEDOM_CLOUD_URL = "https://market.jeedom.com"
 AJAX_SERVICE_PATH = "/service/ajaxSystem"
 

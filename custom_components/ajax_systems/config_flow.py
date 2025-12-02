@@ -285,8 +285,15 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                     _LOGGER.error("Jeedom connection error: %s", err)
                     errors["base"] = "cannot_connect"
                 except Exception as err:
-                    _LOGGER.error("Jeedom error: %s", err)
-                    errors["base"] = "unknown"
+                    error_str = str(err)
+                    _LOGGER.error("Jeedom error: %s", error_str)
+                    # Check for specific error types
+                    if "404" in error_str:
+                        errors["base"] = "jeedom_service_unavailable"
+                    elif "401" in error_str or "403" in error_str:
+                        errors["base"] = "invalid_jeedom_auth"
+                    else:
+                        errors["base"] = "jeedom_proxy_error"
                 finally:
                     await proxy.close()
                     

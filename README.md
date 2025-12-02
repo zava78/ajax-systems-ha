@@ -131,28 +131,39 @@ In the Ajax app, go to Hub Settings → Monitoring Stations:
 
 ---
 
-### Jeedom Cloud Proxy (Full Control)
+### Jeedom Cloud Proxy (Full Control) ⚠️ REQUIRES JEEDOM
 
-This method provides **FULL CONTROL** of your Ajax system including arm/disarm. It uses the Jeedom Market cloud as an authorized proxy to access the Ajax API.
+This method provides **FULL CONTROL** of your Ajax system including arm/disarm. It uses the Jeedom cloud infrastructure as a proxy to access the Ajax API.
 
-#### 🔑 Jeedom Market Credentials
+> ⚠️ **IMPORTANT:** This option requires an active **Jeedom installation** with the **ajaxSystem plugin** installed and configured. The Jeedom cloud service acts as a relay between your Home Assistant and the Ajax API. **Without Jeedom, this option will NOT work.**
+>
+> **If you don't have Jeedom**, use the **SIA Protocol** option instead for local events (no arm/disarm control).
 
-To use this integration method, you need **two sets of credentials**:
+#### Requirements
 
-##### 1. Jeedom Market Account (FREE)
+1. **Jeedom Server** - A working Jeedom installation (box or DIY)
+2. **ajaxSystem Plugin** - Installed from Jeedom Market (free plugin)
+3. **Jeedom Market Account** - For plugin installation
+4. **Ajax App Credentials** - Configured in the ajaxSystem plugin
+
+#### 🔑 Credentials Setup
+
+##### 1. Jeedom Market Account
 
 1. Go to [market.jeedom.com](https://market.jeedom.com)
 2. Click **"Register"** (S'inscrire) in the top right
-3. Fill in the registration form:
-   - Email address
-   - Username
-   - Password
+3. Fill in the registration form
 4. Confirm your email
-5. **Your Jeedom Market credentials are ready!**
 
-> ⚠️ **Note:** You do NOT need to own Jeedom hardware or software. The Market account is free and gives access to the Ajax proxy service.
+##### 2. Install ajaxSystem Plugin on Jeedom
 
-##### 2. Ajax Systems App Credentials
+1. In Jeedom, go to **Plugins** → **Plugin Management** → **Market**
+2. Search for "ajaxSystem"
+3. Install the plugin (free)
+4. Configure with your Ajax app credentials
+5. Sync your devices
+
+##### 3. Ajax Systems App Credentials
 
 These are the same credentials you use in the official Ajax app:
 - Email address used to register in Ajax app

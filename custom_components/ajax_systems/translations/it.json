@@ -110,6 +110,8 @@
       "cloud_api_closed": "L'API Cloud di Ajax è stata chiusa nel 2018 e non funziona più. Usa il Protocollo SIA.",
       "invalid_auth": "Username o password non validi. Controlla le credenziali dell'app Ajax.",
       "invalid_jeedom_auth": "Credenziali Jeedom Market non valide. Controlla il tuo login su market.jeedom.com.",
+      "jeedom_service_unavailable": "Servizio proxy Ajax di Jeedom non disponibile (404). Questa funzione richiede un'installazione Jeedom con il plugin ajaxSystem. Usa il Protocollo SIA per operare solo in locale.",
+      "jeedom_proxy_error": "Errore di connessione al proxy Jeedom. Assicurati che il tuo server Jeedom sia online con il plugin ajaxSystem installato e configurato.",
       "no_hubs": "Nessun hub Ajax trovato. Controlla le credenziali dell'app Ajax.",
       "cannot_connect": "Impossibile connettersi. Verifica la connessione internet.",
       "auth_failed": "Autenticazione fallita. Controlla le tue credenziali.",
