@@ -18,13 +18,21 @@
           "hub_id": "Hub ID",
           "sia_port": "SIA Port",
           "sia_account": "Account Code",
-          "sia_encryption_key": "Encryption Key (optional)"
+          "sia_encryption_key": "Encryption Key (optional)",
+          "mqtt_publish_enabled": "Publish states to MQTT",
+          "mqtt_publish_prefix": "MQTT Topic Prefix",
+          "mqtt_publish_attributes": "Include attributes in MQTT",
+          "mqtt_discovery_enabled": "Enable MQTT Discovery"
         },
         "data_description": {
           "hub_id": "Unique identifier for your hub",
           "sia_port": "Port to listen for SIA events (default: 2410)",
           "sia_account": "Account code configured in your Ajax Hub",
-          "sia_encryption_key": "AES encryption key if encryption is enabled"
+          "sia_encryption_key": "AES encryption key if encryption is enabled",
+          "mqtt_publish_enabled": "Publish entity state changes to the local MQTT broker",
+          "mqtt_publish_prefix": "Topic prefix for MQTT messages (e.g. ajax)",
+          "mqtt_publish_attributes": "Include entity attributes in MQTT messages",
+          "mqtt_discovery_enabled": "Create MQTT discovery config for other systems"
         }
       },
       "cloud": {
@@ -76,7 +84,11 @@
           "hub_id": "Hub ID",
           "use_sia": "Also enable SIA receiver (recommended)",
           "sia_port": "SIA Port",
-          "sia_account": "Account Code"
+          "sia_account": "Account Code",
+          "mqtt_publish_enabled": "Publish states to MQTT",
+          "mqtt_publish_prefix": "MQTT Topic Prefix",
+          "mqtt_publish_attributes": "Include attributes in MQTT",
+          "mqtt_discovery_enabled": "Enable MQTT Discovery"
         },
         "data_description": {
           "jeedom_username": "Your Jeedom Market email (market.jeedom.com)",
@@ -86,7 +98,11 @@
           "hub_id": "Unique identifier for your hub",
           "use_sia": "Enable SIA for faster real-time events",
           "sia_port": "Port to listen for SIA events",
-          "sia_account": "Account code configured in your Ajax Hub"
+          "sia_account": "Account code configured in your Ajax Hub",
+          "mqtt_publish_enabled": "Publish entity state changes to the local MQTT broker",
+          "mqtt_publish_prefix": "Topic prefix for MQTT messages (e.g. ajax)",
+          "mqtt_publish_attributes": "Include entity attributes in MQTT messages",
+          "mqtt_discovery_enabled": "Create MQTT discovery config for other systems"
         }
       }
     },
@@ -112,7 +128,17 @@
         "title": "Ajax Systems Options",
         "data": {
           "sia_port": "SIA Port",
-          "sia_account": "Account Code"
+          "sia_account": "Account Code",
+          "mqtt_publish_enabled": "Publish states to MQTT",
+          "mqtt_publish_prefix": "MQTT Topic Prefix",
+          "mqtt_publish_attributes": "Include attributes in MQTT",
+          "mqtt_discovery_enabled": "Enable MQTT Discovery"
+        },
+        "data_description": {
+          "mqtt_publish_enabled": "Publish entity state changes to the local MQTT broker",
+          "mqtt_publish_prefix": "Topic prefix for MQTT messages (e.g. ajax)",
+          "mqtt_publish_attributes": "Include entity attributes in MQTT messages",
+          "mqtt_discovery_enabled": "Create MQTT discovery config for other systems"
         }
       }
     }

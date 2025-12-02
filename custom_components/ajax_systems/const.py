@@ -24,10 +24,18 @@ CONF_JEEDOM_PASSWORD: Final = "jeedom_password"
 CONF_AJAX_USERNAME: Final = "ajax_username"
 CONF_AJAX_PASSWORD: Final = "ajax_password"
 
+# MQTT Publish configuration (publish state changes to local MQTT)
+CONF_MQTT_PUBLISH_ENABLED: Final = "mqtt_publish_enabled"
+CONF_MQTT_PUBLISH_PREFIX: Final = "mqtt_publish_prefix"
+CONF_MQTT_PUBLISH_ATTRIBUTES: Final = "mqtt_publish_attributes"
+CONF_MQTT_PUBLISH_RETAIN: Final = "mqtt_publish_retain"
+CONF_MQTT_DISCOVERY_ENABLED: Final = "mqtt_discovery_enabled"
+
 # Default values
 DEFAULT_SIA_PORT: Final = 2410
 DEFAULT_MQTT_TOPIC_PREFIX: Final = "jeedom/cmd"
 DEFAULT_MQTT_PREFIX: Final = "jeedom/cmd"
+DEFAULT_MQTT_PUBLISH_PREFIX: Final = "ajax"
 
 # API endpoints (reverse engineered from Jeedom plugin analysis)
 AJAX_CLOUD_BASE_URL: Final = "https://app.ajax.systems"

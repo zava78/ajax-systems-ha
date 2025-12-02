@@ -18,13 +18,21 @@
           "hub_id": "ID Hub",
           "sia_port": "Porta SIA",
           "sia_account": "Codice Account",
-          "sia_encryption_key": "Chiave di Crittografia (opzionale)"
+          "sia_encryption_key": "Chiave di Crittografia (opzionale)",
+          "mqtt_publish_enabled": "Pubblica stati su MQTT",
+          "mqtt_publish_prefix": "Prefisso Topic MQTT",
+          "mqtt_publish_attributes": "Includi attributi in MQTT",
+          "mqtt_discovery_enabled": "Abilita MQTT Discovery"
         },
         "data_description": {
           "hub_id": "Identificativo univoco per il tuo hub",
           "sia_port": "Porta per ricevere eventi SIA (default: 2410)",
           "sia_account": "Codice account configurato nel tuo Ajax Hub",
-          "sia_encryption_key": "Chiave AES se la crittografia è abilitata"
+          "sia_encryption_key": "Chiave AES se la crittografia è abilitata",
+          "mqtt_publish_enabled": "Pubblica le variazioni di stato delle entità sul broker MQTT locale",
+          "mqtt_publish_prefix": "Prefisso per i topic MQTT (es. ajax)",
+          "mqtt_publish_attributes": "Includi gli attributi delle entità nei messaggi MQTT",
+          "mqtt_discovery_enabled": "Crea configurazione MQTT discovery per altri sistemi"
         }
       },
       "cloud": {
@@ -76,7 +84,11 @@
           "hub_id": "ID Hub",
           "use_sia": "Abilita anche ricevitore SIA (consigliato)",
           "sia_port": "Porta SIA",
-          "sia_account": "Codice Account"
+          "sia_account": "Codice Account",
+          "mqtt_publish_enabled": "Pubblica stati su MQTT",
+          "mqtt_publish_prefix": "Prefisso Topic MQTT",
+          "mqtt_publish_attributes": "Includi attributi in MQTT",
+          "mqtt_discovery_enabled": "Abilita MQTT Discovery"
         },
         "data_description": {
           "jeedom_username": "La tua email Jeedom Market (market.jeedom.com)",
@@ -86,7 +98,11 @@
           "hub_id": "Identificativo univoco per il tuo hub",
           "use_sia": "Abilita SIA per eventi in tempo reale più veloci",
           "sia_port": "Porta per ricevere eventi SIA",
-          "sia_account": "Codice account configurato nel tuo Ajax Hub"
+          "sia_account": "Codice account configurato nel tuo Ajax Hub",
+          "mqtt_publish_enabled": "Pubblica le variazioni di stato delle entità sul broker MQTT locale",
+          "mqtt_publish_prefix": "Prefisso per i topic MQTT (es. ajax)",
+          "mqtt_publish_attributes": "Includi gli attributi delle entità nei messaggi MQTT",
+          "mqtt_discovery_enabled": "Crea configurazione MQTT discovery per altri sistemi"
         }
       }
     },
@@ -112,7 +128,17 @@
         "title": "Opzioni Ajax Systems",
         "data": {
           "sia_port": "Porta SIA",
-          "sia_account": "Codice Account"
+          "sia_account": "Codice Account",
+          "mqtt_publish_enabled": "Pubblica stati su MQTT",
+          "mqtt_publish_prefix": "Prefisso Topic MQTT",
+          "mqtt_publish_attributes": "Includi attributi in MQTT",
+          "mqtt_discovery_enabled": "Abilita MQTT Discovery"
+        },
+        "data_description": {
+          "mqtt_publish_enabled": "Pubblica le variazioni di stato delle entità sul broker MQTT locale",
+          "mqtt_publish_prefix": "Prefisso per i topic MQTT (es. ajax)",
+          "mqtt_publish_attributes": "Includi gli attributi delle entità nei messaggi MQTT",
+          "mqtt_discovery_enabled": "Crea configurazione MQTT discovery per altri sistemi"
         }
       }
     }

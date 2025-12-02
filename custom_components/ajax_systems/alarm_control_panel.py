@@ -51,6 +51,12 @@ class AjaxAlarmPanel(CoordinatorEntity[AjaxDataCoordinator], AlarmControlPanelEn
         self._hub = coordinator.data.hub
         self._attr_unique_id = f"{DOMAIN}_{self._hub.device_id}"
     
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass."""
+        await super().async_added_to_hass()
+        # Register for MQTT publishing
+        self.coordinator.register_entity_for_mqtt(self.entity_id)
+    
     @property
     def device_info(self) -> DeviceInfo:
         """Return device info."""

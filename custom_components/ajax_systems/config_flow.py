@@ -22,6 +22,11 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_HUB_ID,
     CONF_MQTT_PREFIX,
+    CONF_MQTT_PUBLISH_ENABLED,
+    CONF_MQTT_PUBLISH_PREFIX,
+    CONF_MQTT_PUBLISH_ATTRIBUTES,
+    CONF_MQTT_PUBLISH_RETAIN,
+    CONF_MQTT_DISCOVERY_ENABLED,
     CONF_SIA_ACCOUNT,
     CONF_SIA_ENCRYPTION_KEY,
     CONF_SIA_PORT,
@@ -34,6 +39,7 @@ from .const import (
     CONF_AJAX_USERNAME,
     CONF_AJAX_PASSWORD,
     DEFAULT_MQTT_PREFIX,
+    DEFAULT_MQTT_PUBLISH_PREFIX,
     DEFAULT_SIA_PORT,
     DOMAIN,
 )
@@ -103,6 +109,11 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
                 CONF_SIA_ACCOUNT: user_input.get(CONF_SIA_ACCOUNT, "AAA"),
                 CONF_SIA_ENCRYPTION_KEY: user_input.get(CONF_SIA_ENCRYPTION_KEY, ""),
+                # MQTT Publish options
+                CONF_MQTT_PUBLISH_ENABLED: user_input.get(CONF_MQTT_PUBLISH_ENABLED, False),
+                CONF_MQTT_PUBLISH_PREFIX: user_input.get(CONF_MQTT_PUBLISH_PREFIX, DEFAULT_MQTT_PUBLISH_PREFIX),
+                CONF_MQTT_PUBLISH_ATTRIBUTES: user_input.get(CONF_MQTT_PUBLISH_ATTRIBUTES, True),
+                CONF_MQTT_DISCOVERY_ENABLED: user_input.get(CONF_MQTT_DISCOVERY_ENABLED, False),
             }
             
             # Validate port is available
@@ -132,6 +143,13 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_SIA_ENCRYPTION_KEY): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 ),
+                # MQTT Publish options
+                vol.Optional(CONF_MQTT_PUBLISH_ENABLED, default=False): BooleanSelector(),
+                vol.Optional(CONF_MQTT_PUBLISH_PREFIX, default=DEFAULT_MQTT_PUBLISH_PREFIX): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
+                vol.Optional(CONF_MQTT_PUBLISH_ATTRIBUTES, default=True): BooleanSelector(),
+                vol.Optional(CONF_MQTT_DISCOVERY_ENABLED, default=False): BooleanSelector(),
             }),
             errors=errors,
         )
@@ -289,6 +307,11 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
                     CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
                     CONF_SIA_ACCOUNT: user_input.get(CONF_SIA_ACCOUNT, "AAA"),
+                    # MQTT Publish options
+                    CONF_MQTT_PUBLISH_ENABLED: user_input.get(CONF_MQTT_PUBLISH_ENABLED, False),
+                    CONF_MQTT_PUBLISH_PREFIX: user_input.get(CONF_MQTT_PUBLISH_PREFIX, DEFAULT_MQTT_PUBLISH_PREFIX),
+                    CONF_MQTT_PUBLISH_ATTRIBUTES: user_input.get(CONF_MQTT_PUBLISH_ATTRIBUTES, True),
+                    CONF_MQTT_DISCOVERY_ENABLED: user_input.get(CONF_MQTT_DISCOVERY_ENABLED, False),
                 }
                 
                 await self.async_set_unique_id(f"ajax_jeedom_{ajax_username}")
@@ -324,6 +347,13 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_SIA_ACCOUNT, default="AAA"): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.TEXT)
                 ),
+                # MQTT Publish options
+                vol.Optional(CONF_MQTT_PUBLISH_ENABLED, default=False): BooleanSelector(),
+                vol.Optional(CONF_MQTT_PUBLISH_PREFIX, default=DEFAULT_MQTT_PUBLISH_PREFIX): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
+                vol.Optional(CONF_MQTT_PUBLISH_ATTRIBUTES, default=True): BooleanSelector(),
+                vol.Optional(CONF_MQTT_DISCOVERY_ENABLED, default=False): BooleanSelector(),
             }),
             errors=errors,
             description_placeholders={
@@ -392,20 +422,42 @@ class AjaxOptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
         
+        # Get current values from config entry
+        current_data = {**self.config_entry.data, **self.config_entry.options}
+        
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
                 vol.Optional(
                     CONF_SIA_PORT,
-                    default=self.config_entry.data.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
+                    default=current_data.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
                 ): NumberSelector(
                     NumberSelectorConfig(min=1, max=65535, step=1, mode="box")
                 ),
                 vol.Optional(
                     CONF_SIA_ACCOUNT,
-                    default=self.config_entry.data.get(CONF_SIA_ACCOUNT, "AAA"),
+                    default=current_data.get(CONF_SIA_ACCOUNT, "AAA"),
                 ): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.TEXT)
                 ),
+                # MQTT Publish options
+                vol.Optional(
+                    CONF_MQTT_PUBLISH_ENABLED,
+                    default=current_data.get(CONF_MQTT_PUBLISH_ENABLED, False),
+                ): BooleanSelector(),
+                vol.Optional(
+                    CONF_MQTT_PUBLISH_PREFIX,
+                    default=current_data.get(CONF_MQTT_PUBLISH_PREFIX, DEFAULT_MQTT_PUBLISH_PREFIX),
+                ): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
+                vol.Optional(
+                    CONF_MQTT_PUBLISH_ATTRIBUTES,
+                    default=current_data.get(CONF_MQTT_PUBLISH_ATTRIBUTES, True),
+                ): BooleanSelector(),
+                vol.Optional(
+                    CONF_MQTT_DISCOVERY_ENABLED,
+                    default=current_data.get(CONF_MQTT_DISCOVERY_ENABLED, False),
+                ): BooleanSelector(),
             }),
         )

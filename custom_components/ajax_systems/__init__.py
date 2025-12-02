@@ -62,6 +62,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
+    # Set up MQTT publisher after entities are created
+    await coordinator.async_setup_mqtt_publisher()
+    
     # Register update listener for config changes
     entry.async_on_unload(entry.add_update_listener(async_update_options))
     

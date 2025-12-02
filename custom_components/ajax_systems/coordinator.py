@@ -12,10 +12,15 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import AjaxCloudApi, AjaxApiError, AjaxAuthError
 from .const import (
     CONF_HUB_ID,
+    CONF_MQTT_PUBLISH_ENABLED,
+    CONF_MQTT_PUBLISH_PREFIX,
+    CONF_MQTT_PUBLISH_ATTRIBUTES,
+    CONF_MQTT_DISCOVERY_ENABLED,
     CONF_SIA_ACCOUNT,
     CONF_SIA_PORT,
     CONF_USE_CLOUD,
     CONF_USE_SIA,
+    DEFAULT_MQTT_PUBLISH_PREFIX,
     DEFAULT_SIA_PORT,
     DOMAIN,
 )
@@ -53,6 +58,13 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
         # SIA receiver
         self._sia_receiver: Optional[SiaReceiver] = None
         self._use_sia = entry.data.get(CONF_USE_SIA, True)
+        
+        # MQTT Publisher
+        self._mqtt_publisher = None
+        self._use_mqtt_publish = entry.data.get(CONF_MQTT_PUBLISH_ENABLED, False)
+        
+        # List of entity IDs to track for MQTT
+        self._tracked_entity_ids: list[str] = []
     
     async def async_setup(self) -> bool:
         """Set up the coordinator."""
@@ -134,6 +146,65 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
         )
         return True  # Allow setup anyway with default hub
     
+    async def async_setup_mqtt_publisher(self) -> None:
+        """Set up MQTT publisher after entities are created."""
+        if not self._use_mqtt_publish:
+            return
+        
+        try:
+            from .mqtt_publisher import AjaxMqttPublisher, MqttPublisherConfig
+            
+            # Get config from entry, merging data and options
+            config_data = {**self.entry.data, **self.entry.options}
+            
+            publisher_config = MqttPublisherConfig(
+                enabled=True,
+                topic_prefix=config_data.get(CONF_MQTT_PUBLISH_PREFIX, DEFAULT_MQTT_PUBLISH_PREFIX),
+                publish_attributes=config_data.get(CONF_MQTT_PUBLISH_ATTRIBUTES, True),
+                retain=True,
+                qos=1,
+                discovery_enabled=config_data.get(CONF_MQTT_DISCOVERY_ENABLED, False),
+                discovery_prefix="homeassistant",
+            )
+            
+            hub_id = config_data.get(CONF_HUB_ID, "ajax_hub")
+            self._mqtt_publisher = AjaxMqttPublisher(self.hass, publisher_config, hub_id)
+            
+            if await self._mqtt_publisher.async_start():
+                _LOGGER.info("MQTT publisher started, tracking %d entities", len(self._tracked_entity_ids))
+                # Track entities that were registered
+                for entity_id in self._tracked_entity_ids:
+                    self._mqtt_publisher.track_entity(entity_id)
+            else:
+                _LOGGER.warning("MQTT publisher failed to start")
+                self._mqtt_publisher = None
+                
+        except ImportError as err:
+            _LOGGER.error("Failed to import MQTT publisher: %s", err)
+        except Exception as err:
+            _LOGGER.error("Error setting up MQTT publisher: %s", err)
+    
+    def register_entity_for_mqtt(self, entity_id: str) -> None:
+        """Register an entity to be tracked by MQTT publisher."""
+        if entity_id not in self._tracked_entity_ids:
+            self._tracked_entity_ids.append(entity_id)
+            # If publisher is already running, track immediately
+            if self._mqtt_publisher:
+                self._mqtt_publisher.track_entity(entity_id)
+    
+    async def async_publish_alarm_event(
+        self,
+        event_code: str,
+        event_description: str,
+        zone: str | None = None,
+        device_name: str | None = None,
+    ) -> None:
+        """Publish an alarm event to MQTT."""
+        if self._mqtt_publisher:
+            await self._mqtt_publisher.async_publish_alarm_event(
+                event_code, event_description, zone, device_name
+            )
+    
     async def async_shutdown(self) -> None:
         """Shut down the coordinator."""
         if self._api:
@@ -141,6 +212,9 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
         
         if self._sia_receiver:
             await self._sia_receiver.stop()
+        
+        if self._mqtt_publisher:
+            await self._mqtt_publisher.async_stop()
     
     async def _async_update_data(self) -> AjaxCoordinator:
         """Fetch data from Ajax."""
@@ -212,6 +286,19 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
                         device.smoke_detected = sensor_update["smoke_detected"]
                     if "tamper" in sensor_update:
                         device.tamper = sensor_update["tamper"]
+        
+        # Publish event to MQTT if enabled
+        if self._mqtt_publisher:
+            from .const import SIA_EVENT_CODES
+            event_desc = SIA_EVENT_CODES.get(event.event_code, f"Unknown ({event.event_code})")
+            self.hass.async_create_task(
+                self._mqtt_publisher.async_publish_alarm_event(
+                    event_code=event.event_code,
+                    event_description=event_desc,
+                    zone=event.zone,
+                    device_name=None,
+                )
+            )
         
         # Notify listeners
         self.async_set_updated_data(self.data)
