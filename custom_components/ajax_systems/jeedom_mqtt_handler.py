@@ -3,19 +3,28 @@
 This module subscribes to Jeedom MQTT events and translates them to
 Home Assistant entities. Jeedom publishes Ajax sensor states via MQTT.
 
-Typical Jeedom message format:
-{
-  "value": 0,
-  "humanName": "[Nessuno][MATRIMONIALE IR][Trafiqué]",
-  "unite": "",
-  "name": "Trafiqué",
+Jeedom message format (one message per command):
+Topic: jeedom/cmd/event/{command_id}
+Payload: {
+  "value": 0|1|"string"|number,
+  "humanName": "[Zone][DeviceName][CommandName]",
+  "unite": "°C" or "",
+  "name": "CommandName",
   "type": "info",
-  "subtype": "binary"
+  "subtype": "binary|numeric|string"
 }
+
+Each Ajax device has multiple commands:
+- Trafiqué (Tamper) - binary 0/1
+- En ligne (Online) - binary 0/1  
+- Température - numeric with °C
+- Ouvert/Fermé (Open/Closed) - binary for door sensors
+- Batterie - numeric percentage or string "CHARGED"
+- Etat (State) - for sirens, keypads, etc.
+- Signal - string "WEAK"/"STRONG"
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -36,153 +45,196 @@ DEFAULT_JEEDOM_MQTT_TOPIC = "jeedom/cmd/event"
 
 # Signal for entity updates
 SIGNAL_JEEDOM_UPDATE = f"{DOMAIN}_jeedom_update"
+SIGNAL_JEEDOM_DEVICE_UPDATE = f"{DOMAIN}_jeedom_device_update"
 
-
-# French to English/Italian translations for Ajax states
-FRENCH_TRANSLATIONS: dict[str, dict[str, str]] = {
-    # Tamper / Sabotage states
-    "Trafiqué": {"en": "Tampered", "it": "Manomesso"},
-    "Non trafiqué": {"en": "Not Tampered", "it": "Non manomesso"},
-    "Sabotage": {"en": "Tamper", "it": "Manomissione"},
+# Command name to attribute mapping
+COMMAND_MAPPING = {
+    # Tamper commands
+    "Trafiqué": {"attr": "tamper", "binary": True, "invert": False},
+    "Non trafiqué": {"attr": "tamper", "binary": True, "invert": True},
+    "Sabotage": {"attr": "tamper", "binary": True, "invert": False},
     
-    # Door/Window states
-    "Ouvert": {"en": "Open", "it": "Aperto"},
-    "Fermé": {"en": "Closed", "it": "Chiuso"},
-    "Ouverte": {"en": "Open", "it": "Aperta"},
-    "Fermée": {"en": "Closed", "it": "Chiusa"},
+    # Online/Connection commands
+    "En ligne": {"attr": "online", "binary": True, "invert": False},
+    "Hors ligne": {"attr": "online", "binary": True, "invert": True},
+    "Connecté": {"attr": "online", "binary": True, "invert": False},
+    "Déconnecté": {"attr": "online", "binary": True, "invert": True},
+    "Ethernet": {"attr": "ethernet", "binary": True, "invert": False},
+    "Alimentation secteur": {"attr": "power", "binary": True, "invert": False},
     
-    # Motion states
-    "Mouvement": {"en": "Motion", "it": "Movimento"},
-    "Pas de mouvement": {"en": "No Motion", "it": "Nessun movimento"},
-    "Mouvement détecté": {"en": "Motion Detected", "it": "Movimento rilevato"},
-    "Aucun mouvement": {"en": "No Motion", "it": "Nessun movimento"},
+    # Door/Window commands
+    "Ouvert": {"attr": "is_open", "binary": True, "invert": True},  # 0=open, 1=closed in Ajax
+    "Fermé": {"attr": "is_open", "binary": True, "invert": False},
+    "Ouverte": {"attr": "is_open", "binary": True, "invert": True},
+    "Fermée": {"attr": "is_open", "binary": True, "invert": False},
+    "Ouverture": {"attr": "is_open", "binary": True, "invert": True},
     
-    # Alarm states
-    "Armé": {"en": "Armed", "it": "Armato"},
-    "Désarmé": {"en": "Disarmed", "it": "Disarmato"},
-    "Armement": {"en": "Arming", "it": "Armando"},
-    "Armé total": {"en": "Armed Away", "it": "Armato totale"},
-    "Armé partiel": {"en": "Armed Home", "it": "Armato parziale"},
-    "Armé nuit": {"en": "Armed Night", "it": "Armato notte"},
-    "Mode nuit": {"en": "Night Mode", "it": "Modo notte"},
-    "En alarme": {"en": "Triggered", "it": "In allarme"},
-    "Alarme": {"en": "Alarm", "it": "Allarme"},
+    # Motion commands
+    "Mouvement": {"attr": "motion", "binary": True, "invert": False},
+    "Mouvement détecté": {"attr": "motion", "binary": True, "invert": False},
     
-    # Fire/Smoke states
-    "Fumée": {"en": "Smoke", "it": "Fumo"},
-    "Fumée détectée": {"en": "Smoke Detected", "it": "Fumo rilevato"},
-    "Pas de fumée": {"en": "No Smoke", "it": "Nessun fumo"},
-    "Incendie": {"en": "Fire", "it": "Incendio"},
-    "Température élevée": {"en": "High Temperature", "it": "Temperatura elevata"},
-    "Chaleur": {"en": "Heat", "it": "Calore"},
+    # Leak commands
+    "Fuite": {"attr": "leak", "binary": True, "invert": False},
+    "Fuite détectée": {"attr": "leak", "binary": True, "invert": False},
+    "Fuite d'eau": {"attr": "leak", "binary": True, "invert": False},
+    "Inondation": {"attr": "leak", "binary": True, "invert": False},
     
-    # Water/Leak states
-    "Fuite": {"en": "Leak", "it": "Perdita"},
-    "Fuite d'eau": {"en": "Water Leak", "it": "Perdita d'acqua"},
-    "Fuite détectée": {"en": "Leak Detected", "it": "Perdita rilevata"},
-    "Pas de fuite": {"en": "No Leak", "it": "Nessuna perdita"},
-    "Inondation": {"en": "Flood", "it": "Allagamento"},
+    # Fire/Smoke commands
+    "Fumée": {"attr": "smoke", "binary": True, "invert": False},
+    "Fumée détectée": {"attr": "smoke", "binary": True, "invert": False},
+    "Incendie": {"attr": "fire", "binary": True, "invert": False},
     
-    # Glass break states
-    "Bris de glace": {"en": "Glass Break", "it": "Rottura vetro"},
-    "Vitre brisée": {"en": "Glass Broken", "it": "Vetro rotto"},
+    # Temperature command
+    "Température": {"attr": "temperature", "binary": False, "unit": "°C"},
     
-    # Battery states
-    "Batterie": {"en": "Battery", "it": "Batteria"},
-    "Batterie faible": {"en": "Low Battery", "it": "Batteria scarica"},
-    "Batterie OK": {"en": "Battery OK", "it": "Batteria OK"},
-    "Batterie critique": {"en": "Critical Battery", "it": "Batteria critica"},
+    # Battery commands
+    "Batterie": {"attr": "battery", "binary": False, "unit": "%"},
+    "Etat de la batterie": {"attr": "battery_state", "binary": False},
     
-    # Connection states
-    "Connecté": {"en": "Connected", "it": "Connesso"},
-    "Déconnecté": {"en": "Disconnected", "it": "Disconnesso"},
-    "En ligne": {"en": "Online", "it": "Online"},
-    "Hors ligne": {"en": "Offline", "it": "Offline"},
-    "Connexion perdue": {"en": "Connection Lost", "it": "Connessione persa"},
+    # Signal command
+    "Signal": {"attr": "signal", "binary": False},
     
-    # Signal states
-    "Signal": {"en": "Signal", "it": "Segnale"},
-    "Signal fort": {"en": "Strong Signal", "it": "Segnale forte"},
-    "Signal faible": {"en": "Weak Signal", "it": "Segnale debole"},
+    # State commands (for sirens, keypads, etc.)
+    "Etat": {"attr": "state", "binary": False},
     
-    # General states
-    "Actif": {"en": "Active", "it": "Attivo"},
-    "Inactif": {"en": "Inactive", "it": "Inattivo"},
-    "OK": {"en": "OK", "it": "OK"},
-    "Erreur": {"en": "Error", "it": "Errore"},
-    "Problème": {"en": "Problem", "it": "Problema"},
-    "Normal": {"en": "Normal", "it": "Normale"},
-    "Alerte": {"en": "Alert", "it": "Allerta"},
-    
-    # Room/Zone names (common)
-    "Nessuno": {"en": "None", "it": "Nessuno"},  # Already Italian but often in messages
-    "Aucun": {"en": "None", "it": "Nessuno"},
-    "Entrée": {"en": "Entrance", "it": "Ingresso"},
-    "Salon": {"en": "Living Room", "it": "Soggiorno"},
-    "Cuisine": {"en": "Kitchen", "it": "Cucina"},
-    "Chambre": {"en": "Bedroom", "it": "Camera"},
-    "Salle de bain": {"en": "Bathroom", "it": "Bagno"},
-    "Garage": {"en": "Garage", "it": "Garage"},
-    "Jardin": {"en": "Garden", "it": "Giardino"},
-    "Cave": {"en": "Cellar", "it": "Cantina"},
-    "Grenier": {"en": "Attic", "it": "Soffitta"},
-    "Bureau": {"en": "Office", "it": "Ufficio"},
-    "Couloir": {"en": "Hallway", "it": "Corridoio"},
-    
-    # Sensor types
-    "Détecteur": {"en": "Detector", "it": "Rilevatore"},
-    "Détecteur de mouvement": {"en": "Motion Detector", "it": "Rilevatore di movimento"},
-    "Détecteur d'ouverture": {"en": "Door Sensor", "it": "Sensore porta"},
-    "Détecteur de fumée": {"en": "Smoke Detector", "it": "Rilevatore fumo"},
-    "Détecteur de fuite": {"en": "Leak Detector", "it": "Rilevatore perdite"},
-    "Télécommande": {"en": "Remote Control", "it": "Telecomando"},
-    "Clavier": {"en": "Keypad", "it": "Tastiera"},
-    "Sirène": {"en": "Siren", "it": "Sirena"},
-    "Hub": {"en": "Hub", "it": "Hub"},
+    # Alarm state commands
+    "Armé": {"attr": "alarm_state", "binary": False, "value": "armed"},
+    "Désarmé": {"attr": "alarm_state", "binary": False, "value": "disarmed"},
+    "Mode nuit": {"attr": "alarm_state", "binary": False, "value": "night"},
 }
 
-# Name patterns for sensor type detection
-SENSOR_TYPE_PATTERNS: dict[str, list[str]] = {
-    "door": ["door", "porte", "fenêtre", "window", "ouverture", "doorprotect", "porta", "finestra"],
-    "motion": ["motion", "mouvement", "ir", "pir", "motionprotect", "movimento"],
-    "smoke": ["smoke", "fumée", "fire", "incendie", "fireprotect", "fumo"],
-    "leak": ["leak", "fuite", "water", "eau", "leaksprotect", "acqua", "perdita"],
-    "glass": ["glass", "vitre", "glassprotect", "vetro"],
-    "tamper": ["tamper", "sabotage", "trafiqué", "manomissione"],
-    "battery": ["battery", "batterie", "batteria"],
-    "signal": ["signal", "rssi", "segnale"],
-    "temperature": ["temp", "température", "temperatura", "chaleur", "heat"],
+# French to Italian/English translations
+TRANSLATIONS = {
+    # States
+    "Trafiqué": {"it": "Manomesso", "en": "Tampered"},
+    "Non trafiqué": {"it": "Non manomesso", "en": "Not Tampered"},
+    "En ligne": {"it": "Online", "en": "Online"},
+    "Hors ligne": {"it": "Offline", "en": "Offline"},
+    "Ouvert": {"it": "Aperto", "en": "Open"},
+    "Fermé": {"it": "Chiuso", "en": "Closed"},
+    "Ouverte": {"it": "Aperta", "en": "Open"},
+    "Fermée": {"it": "Chiusa", "en": "Closed"},
+    "Connecté": {"it": "Connesso", "en": "Connected"},
+    "Déconnecté": {"it": "Disconnesso", "en": "Disconnected"},
+    "Batterie": {"it": "Batteria", "en": "Battery"},
+    "Température": {"it": "Temperatura", "en": "Temperature"},
+    "Signal": {"it": "Segnale", "en": "Signal"},
+    "Etat": {"it": "Stato", "en": "State"},
+    "CHARGED": {"it": "Carica", "en": "Charged"},
+    "WEAK": {"it": "Debole", "en": "Weak"},
+    "STRONG": {"it": "Forte", "en": "Strong"},
+    
+    # Device types
+    "Sirène": {"it": "Sirena", "en": "Siren"},
+    "Clavier": {"it": "Tastiera", "en": "Keypad"},
+    "Télécommande": {"it": "Telecomando", "en": "Remote"},
+    "Hub": {"it": "Hub", "en": "Hub"},
+}
+
+# Device type detection patterns
+DEVICE_TYPE_PATTERNS = {
+    "hub": ["hub", "1020", "centrale"],
+    "door": ["door", "protect", "fin.", "porta", "finestra", "porte", "fenêtre"],
+    "motion": ["ir", "pir", "motion", "movimento"],
+    "siren": ["sirena", "sirène", "siren"],
+    "keypad": ["tastiera", "clavier", "keypad"],
+    "remote": ["telecomando", "télécommande", "remote", "spacecontrol"],
+    "leak": ["leak", "fuite", "acqua", "water"],
+    "smoke": ["smoke", "fumée", "fire", "incendie"],
 }
 
 
 @dataclass
-class JeedomSensorState:
-    """Represents a sensor state from Jeedom MQTT."""
+class JeedomDevice:
+    """Represents an Ajax device discovered from Jeedom MQTT."""
     
-    entity_id: str  # Unique ID derived from humanName
-    name: str  # Display name (translated)
-    original_name: str  # Original French name
-    value: Any  # Current value (0/1 for binary, numeric for sensors)
-    human_name: str  # Full human readable name from Jeedom
-    sensor_type: str  # Detected sensor type (door, motion, etc.)
-    subtype: str  # binary, numeric, string, etc.
-    unit: str  # Unit of measurement
-    device_name: str  # Extracted device name
-    zone_name: str  # Extracted zone/room name
+    device_id: str  # Unique ID based on device name
+    name: str  # Device name (e.g., "MATRIMONIALE IR")
+    zone: str  # Zone name (e.g., "Nessuno")
+    device_type: str  # Detected type (hub, door, motion, etc.)
+    
+    # State attributes - updated from MQTT commands
+    tamper: Optional[bool] = None
+    online: Optional[bool] = None
+    is_open: Optional[bool] = None
+    motion: Optional[bool] = None
+    leak: Optional[bool] = None
+    smoke: Optional[bool] = None
+    fire: Optional[bool] = None
+    
+    # Sensor attributes
+    temperature: Optional[float] = None
+    battery: Optional[int] = None
+    battery_state: Optional[str] = None
+    signal: Optional[str] = None
+    state: Optional[str] = None
+    alarm_state: Optional[str] = None
+    
+    # Connection attributes
+    ethernet: Optional[bool] = None
+    power: Optional[bool] = None
+    
+    # Metadata
     last_update: datetime = field(default_factory=datetime.now)
-    attributes: dict[str, Any] = field(default_factory=dict)
+    jeedom_commands: dict[str, str] = field(default_factory=dict)  # command_name -> topic_id
     
-    @property
-    def is_binary(self) -> bool:
-        """Check if this is a binary sensor."""
-        return self.subtype == "binary"
-    
-    @property
-    def state_on(self) -> bool:
-        """Get boolean state for binary sensors."""
-        if self.is_binary:
-            return bool(self.value)
-        return False
+    def update_from_command(self, command_name: str, value: Any, topic_id: str) -> bool:
+        """Update device state from a Jeedom command.
+        
+        Returns True if the device state changed.
+        """
+        mapping = COMMAND_MAPPING.get(command_name)
+        if not mapping:
+            _LOGGER.debug("Unknown command: %s", command_name)
+            return False
+        
+        attr = mapping["attr"]
+        is_binary = mapping.get("binary", False)
+        invert = mapping.get("invert", False)
+        
+        # Store topic ID for this command
+        self.jeedom_commands[command_name] = topic_id
+        
+        # Process value
+        if is_binary:
+            bool_value = bool(int(value)) if isinstance(value, (int, float, str)) else bool(value)
+            if invert:
+                bool_value = not bool_value
+            old_value = getattr(self, attr, None)
+            setattr(self, attr, bool_value)
+            changed = old_value != bool_value
+        else:
+            # Handle special cases
+            if attr == "temperature":
+                try:
+                    new_value = float(value)
+                except (ValueError, TypeError):
+                    new_value = None
+            elif attr == "battery":
+                if isinstance(value, str) and value.upper() == "CHARGED":
+                    new_value = 100
+                else:
+                    try:
+                        new_value = int(float(value))
+                    except (ValueError, TypeError):
+                        new_value = None
+            elif "value" in mapping:
+                new_value = mapping["value"]
+            else:
+                new_value = str(value) if value is not None else None
+            
+            old_value = getattr(self, attr, None)
+            setattr(self, attr, new_value)
+            changed = old_value != new_value
+        
+        if changed:
+            self.last_update = datetime.now()
+            _LOGGER.debug(
+                "Device %s: %s changed from %s to %s",
+                self.name, attr, old_value, getattr(self, attr)
+            )
+        
+        return changed
 
 
 class JeedomMqttHandler:
@@ -194,267 +246,181 @@ class JeedomMqttHandler:
         topic: str = DEFAULT_JEEDOM_MQTT_TOPIC,
         language: str = "it",
     ) -> None:
-        """Initialize the Jeedom MQTT handler.
-        
-        Args:
-            hass: Home Assistant instance
-            topic: MQTT topic to subscribe to
-            language: Target language for translations (en/it)
-        """
+        """Initialize the Jeedom MQTT handler."""
         self._hass = hass
         self._topic = topic
         self._language = language
         self._unsubscribe: Optional[Callable] = None
-        self._sensors: dict[str, JeedomSensorState] = {}
-        self._callbacks: list[Callable[[JeedomSensorState], None]] = []
+        self._devices: dict[str, JeedomDevice] = {}
+        self._callbacks: list[Callable[[JeedomDevice, str], None]] = []
+        self._message_count = 0
         
     @property
-    def sensors(self) -> dict[str, JeedomSensorState]:
-        """Get all discovered sensors."""
-        return self._sensors
+    def devices(self) -> dict[str, JeedomDevice]:
+        """Get all discovered devices."""
+        return self._devices
     
     def translate(self, text: str) -> str:
-        """Translate French text to target language.
-        
-        Args:
-            text: Text to translate (may contain French words)
-            
-        Returns:
-            Translated text
-        """
-        if not text:
-            return text
-            
-        result = text
-        
-        # Try exact match first
-        if text in FRENCH_TRANSLATIONS:
-            return FRENCH_TRANSLATIONS[text].get(self._language, text)
-        
-        # Try to translate words within the text
-        for french, translations in FRENCH_TRANSLATIONS.items():
-            if french.lower() in result.lower():
-                translation = translations.get(self._language, french)
-                # Case-insensitive replacement
-                pattern = re.compile(re.escape(french), re.IGNORECASE)
-                result = pattern.sub(translation, result)
-        
-        return result
+        """Translate text to target language."""
+        if text in TRANSLATIONS:
+            return TRANSLATIONS[text].get(self._language, text)
+        return text
     
-    def _detect_sensor_type(self, name: str, human_name: str) -> str:
-        """Detect sensor type from name and human name.
+    def _detect_device_type(self, device_name: str) -> str:
+        """Detect device type from name."""
+        name_lower = device_name.lower()
         
-        Args:
-            name: Sensor name from Jeedom
-            human_name: Human readable name
-            
-        Returns:
-            Detected sensor type
-        """
-        combined = f"{name} {human_name}".lower()
-        
-        for sensor_type, patterns in SENSOR_TYPE_PATTERNS.items():
+        for dev_type, patterns in DEVICE_TYPE_PATTERNS.items():
             for pattern in patterns:
-                if pattern in combined:
-                    return sensor_type
+                if pattern in name_lower:
+                    return dev_type
         
         return "unknown"
     
     def _parse_human_name(self, human_name: str) -> tuple[str, str, str]:
-        """Parse Jeedom humanName format.
-        
-        Format: [Zone][Device][State]
-        Example: [Nessuno][MATRIMONIALE IR][Trafiqué]
-        
-        Args:
-            human_name: Human name string from Jeedom
-            
-        Returns:
-            Tuple of (zone_name, device_name, state_name)
-        """
-        # Extract parts between brackets
+        """Parse Jeedom humanName format: [Zone][Device][Command]."""
         parts = re.findall(r'\[([^\]]+)\]', human_name)
         
-        zone_name = parts[0] if len(parts) > 0 else ""
-        device_name = parts[1] if len(parts) > 1 else human_name
-        state_name = parts[2] if len(parts) > 2 else ""
+        zone = parts[0] if len(parts) > 0 else ""
+        device = parts[1] if len(parts) > 1 else human_name
+        command = parts[2] if len(parts) > 2 else ""
         
-        return zone_name, device_name, state_name
+        return zone, device, command
     
-    def _generate_entity_id(self, human_name: str, name: str) -> str:
-        """Generate a unique entity ID.
+    def _get_device_id(self, device_name: str, zone: str) -> str:
+        """Generate unique device ID."""
+        # Clean name for ID
+        clean_name = re.sub(r'[^a-zA-Z0-9]', '_', device_name)
+        clean_name = re.sub(r'_+', '_', clean_name).strip('_').lower()
         
-        Args:
-            human_name: Human name from Jeedom
-            name: State name
-            
-        Returns:
-            Unique entity ID
-        """
-        zone, device, _ = self._parse_human_name(human_name)
-        
-        # Clean and combine for entity ID
-        parts = []
+        # Include zone if not empty/default
         if zone and zone.lower() not in ["nessuno", "aucun", "none", ""]:
-            parts.append(zone)
-        if device:
-            parts.append(device)
-        if name:
-            parts.append(name)
+            clean_zone = re.sub(r'[^a-zA-Z0-9]', '_', zone)
+            clean_zone = re.sub(r'_+', '_', clean_zone).strip('_').lower()
+            return f"ajax_{clean_zone}_{clean_name}"
         
-        # Create slug
-        entity_id = "_".join(parts)
-        entity_id = re.sub(r'[^a-zA-Z0-9_]', '_', entity_id)
-        entity_id = re.sub(r'_+', '_', entity_id)
-        entity_id = entity_id.strip('_').lower()
-        
-        return f"ajax_{entity_id}" if entity_id else f"ajax_sensor_{id(human_name)}"
+        return f"ajax_{clean_name}"
     
-    def _process_message(self, payload: dict[str, Any]) -> Optional[JeedomSensorState]:
+    def _process_message(self, topic: str, payload: dict[str, Any]) -> Optional[tuple[JeedomDevice, str]]:
         """Process a Jeedom MQTT message.
         
-        Args:
-            payload: Parsed JSON payload
-            
-        Returns:
-            JeedomSensorState or None if invalid
+        Returns tuple of (device, changed_attribute) or None.
         """
         try:
+            # Extract topic ID (e.g., "91" from "jeedom/cmd/event/91")
+            topic_parts = topic.split("/")
+            topic_id = topic_parts[-1] if topic_parts else "0"
+            
             value = payload.get("value")
             human_name = payload.get("humanName", "")
-            name = payload.get("name", "")
-            msg_type = payload.get("type", "info")
+            command_name = payload.get("name", "")
             subtype = payload.get("subtype", "binary")
             unit = payload.get("unite", "")
             
-            if not human_name:
-                _LOGGER.debug("Skipping message without humanName: %s", payload)
+            if not human_name or not command_name:
+                _LOGGER.debug("Skipping message without humanName or name: %s", payload)
                 return None
             
             # Parse human name
-            zone_name, device_name, state_name = self._parse_human_name(human_name)
+            zone, device_name, _ = self._parse_human_name(human_name)
             
-            # Detect sensor type
-            sensor_type = self._detect_sensor_type(name, human_name)
+            if not device_name:
+                _LOGGER.debug("Could not extract device name from: %s", human_name)
+                return None
             
-            # Generate entity ID
-            entity_id = self._generate_entity_id(human_name, name)
+            # Get or create device
+            device_id = self._get_device_id(device_name, zone)
             
-            # Translate names
-            translated_name = self.translate(name)
-            translated_device = self.translate(device_name)
-            translated_zone = self.translate(zone_name)
-            translated_state = self.translate(state_name) if state_name else ""
+            if device_id not in self._devices:
+                device_type = self._detect_device_type(device_name)
+                self._devices[device_id] = JeedomDevice(
+                    device_id=device_id,
+                    name=device_name,
+                    zone=zone,
+                    device_type=device_type,
+                )
+                _LOGGER.info(
+                    "Discovered new Ajax device: %s (type: %s, zone: %s)",
+                    device_name, device_type, zone
+                )
             
-            # Build display name
-            if translated_zone and translated_zone.lower() not in ["nessuno", "none", ""]:
-                display_name = f"{translated_zone} - {translated_device} ({translated_name})"
-            else:
-                display_name = f"{translated_device} ({translated_name})"
+            device = self._devices[device_id]
             
-            # Create sensor state
-            sensor = JeedomSensorState(
-                entity_id=entity_id,
-                name=display_name,
-                original_name=name,
-                value=value,
-                human_name=human_name,
-                sensor_type=sensor_type,
-                subtype=subtype,
-                unit=unit,
-                device_name=translated_device,
-                zone_name=translated_zone,
-                last_update=datetime.now(),
-                attributes={
-                    "original_name": name,
-                    "original_human_name": human_name,
-                    "translated_state": translated_state,
-                    "sensor_type": sensor_type,
-                    "jeedom_type": msg_type,
-                    "zone": translated_zone,
-                    "device": translated_device,
-                }
-            )
+            # Update device from command
+            changed = device.update_from_command(command_name, value, topic_id)
             
-            return sensor
+            if changed:
+                # Return the attribute that changed
+                mapping = COMMAND_MAPPING.get(command_name, {})
+                return (device, mapping.get("attr", command_name))
+            
+            return (device, None)
             
         except Exception as err:
-            _LOGGER.error("Error processing Jeedom message: %s - %s", err, payload)
+            _LOGGER.error("Error processing message: %s - %s", err, payload)
             return None
     
     @callback
     def _handle_message(self, msg) -> None:
-        """Handle incoming MQTT message.
+        """Handle incoming MQTT message."""
+        self._message_count += 1
         
-        Args:
-            msg: MQTT message
-        """
         try:
             payload = json.loads(msg.payload)
-            _LOGGER.debug("Jeedom MQTT message: %s", payload)
+            topic = msg.topic
             
-            sensor = self._process_message(payload)
-            if sensor:
-                # Update or add sensor
-                self._sensors[sensor.entity_id] = sensor
+            _LOGGER.debug("MQTT [%s]: %s", topic, payload)
+            
+            result = self._process_message(topic, payload)
+            
+            if result:
+                device, changed_attr = result
                 
-                _LOGGER.info(
-                    "Jeedom sensor update: %s = %s (%s)",
-                    sensor.name,
-                    sensor.value,
-                    sensor.attributes.get("translated_state", "")
-                )
+                if changed_attr:
+                    _LOGGER.info(
+                        "Device %s updated: %s = %s",
+                        device.name,
+                        changed_attr,
+                        getattr(device, changed_attr, None)
+                    )
                 
                 # Notify callbacks
                 for callback_fn in self._callbacks:
                     try:
-                        callback_fn(sensor)
+                        callback_fn(device, changed_attr)
                     except Exception as err:
-                        _LOGGER.error("Error in Jeedom callback: %s", err)
+                        _LOGGER.error("Callback error: %s", err)
                 
-                # Send dispatcher signal for entity updates
+                # Send dispatcher signal
                 async_dispatcher_send(
                     self._hass,
-                    f"{SIGNAL_JEEDOM_UPDATE}_{sensor.entity_id}",
-                    sensor,
+                    f"{SIGNAL_JEEDOM_DEVICE_UPDATE}_{device.device_id}",
+                    device,
+                    changed_attr,
                 )
                 
         except json.JSONDecodeError as err:
-            _LOGGER.error("Invalid JSON in Jeedom MQTT message: %s", err)
+            _LOGGER.warning("Invalid JSON: %s", msg.payload)
         except Exception as err:
-            _LOGGER.error("Error handling Jeedom MQTT message: %s", err)
+            _LOGGER.error("Error handling message: %s", err)
     
-    def add_callback(self, callback_fn: Callable[[JeedomSensorState], None]) -> None:
-        """Add a callback for sensor updates.
-        
-        Args:
-            callback_fn: Function to call on sensor update
-        """
+    def add_callback(self, callback_fn: Callable[[JeedomDevice, str], None]) -> None:
+        """Add a callback for device updates."""
         self._callbacks.append(callback_fn)
     
-    def remove_callback(self, callback_fn: Callable[[JeedomSensorState], None]) -> None:
-        """Remove a callback.
-        
-        Args:
-            callback_fn: Function to remove
-        """
+    def remove_callback(self, callback_fn: Callable[[JeedomDevice, str], None]) -> None:
+        """Remove a callback."""
         if callback_fn in self._callbacks:
             self._callbacks.remove(callback_fn)
     
     async def async_start(self) -> bool:
-        """Start listening for MQTT messages.
-        
-        Returns:
-            True if subscription successful
-        """
+        """Start listening for MQTT messages."""
         try:
-            # Check if MQTT is available
             if not await mqtt.async_wait_for_mqtt_client(self._hass):
-                _LOGGER.warning("MQTT not available, cannot subscribe to Jeedom events")
+                _LOGGER.warning("MQTT not available")
                 return False
             
-            # Subscribe to topic with wildcard to catch all sub-topics
-            # Jeedom publishes to jeedom/cmd/event/1, jeedom/cmd/event/2, etc.
+            # Subscribe with wildcard to catch all sub-topics
             subscribe_topic = self._topic
             if not subscribe_topic.endswith("#") and not subscribe_topic.endswith("+"):
                 subscribe_topic = f"{self._topic.rstrip('/')}/#"
@@ -467,14 +433,14 @@ class JeedomMqttHandler:
             )
             
             _LOGGER.info(
-                "Subscribed to Jeedom MQTT topic: %s (language: %s)",
+                "Subscribed to Jeedom MQTT: %s (language: %s)",
                 subscribe_topic,
                 self._language,
             )
             return True
             
         except Exception as err:
-            _LOGGER.error("Failed to subscribe to Jeedom MQTT: %s", err)
+            _LOGGER.error("Failed to subscribe: %s", err)
             return False
     
     async def async_stop(self) -> None:
@@ -482,42 +448,16 @@ class JeedomMqttHandler:
         if self._unsubscribe:
             self._unsubscribe()
             self._unsubscribe = None
-            _LOGGER.info("Unsubscribed from Jeedom MQTT topic")
+            _LOGGER.info("Unsubscribed from Jeedom MQTT (processed %d messages)", self._message_count)
     
-    def get_sensor(self, entity_id: str) -> Optional[JeedomSensorState]:
-        """Get a sensor by entity ID.
-        
-        Args:
-            entity_id: Entity ID to look up
-            
-        Returns:
-            JeedomSensorState or None
-        """
-        return self._sensors.get(entity_id)
+    def get_device(self, device_id: str) -> Optional[JeedomDevice]:
+        """Get a device by ID."""
+        return self._devices.get(device_id)
     
-    def get_sensors_by_type(self, sensor_type: str) -> list[JeedomSensorState]:
-        """Get all sensors of a specific type.
-        
-        Args:
-            sensor_type: Type to filter by (door, motion, etc.)
-            
-        Returns:
-            List of matching sensors
-        """
-        return [s for s in self._sensors.values() if s.sensor_type == sensor_type]
+    def get_devices_by_type(self, device_type: str) -> list[JeedomDevice]:
+        """Get all devices of a specific type."""
+        return [d for d in self._devices.values() if d.device_type == device_type]
     
-    def get_binary_sensors(self) -> list[JeedomSensorState]:
-        """Get all binary sensors.
-        
-        Returns:
-            List of binary sensors
-        """
-        return [s for s in self._sensors.values() if s.is_binary]
-    
-    def get_numeric_sensors(self) -> list[JeedomSensorState]:
-        """Get all numeric sensors.
-        
-        Returns:
-            List of numeric sensors
-        """
-        return [s for s in self._sensors.values() if not s.is_binary]
+    def get_all_devices(self) -> list[JeedomDevice]:
+        """Get all discovered devices."""
+        return list(self._devices.values())

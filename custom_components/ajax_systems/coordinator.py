@@ -153,96 +153,114 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
             return False
     
     @callback
-    def _handle_jeedom_sensor_update(self, sensor) -> None:
-        """Handle sensor update from Jeedom MQTT."""
-        from .jeedom_mqtt_handler import JeedomSensorState
+    def _handle_jeedom_sensor_update(self, device, changed_attr: str) -> None:
+        """Handle device update from Jeedom MQTT."""
+        from .jeedom_mqtt_handler import JeedomDevice
         from .models import AjaxDoorSensor, AjaxMotionSensor, AjaxLeakSensor, AjaxFireSensor
         from .const import AjaxDeviceType
         
-        if not isinstance(sensor, JeedomSensorState):
+        if not isinstance(device, JeedomDevice):
             return
         
         _LOGGER.debug(
-            "Jeedom sensor update: %s = %s (type: %s)",
-            sensor.entity_id,
-            sensor.value,
-            sensor.sensor_type,
+            "Jeedom device update: %s.%s (type: %s)",
+            device.name,
+            changed_attr,
+            device.device_type,
         )
         
         hub_id = self.data.hub.device_id if self.data.hub else "ajax_hub"
-        device_id = sensor.entity_id
+        device_id = device.device_id
         
-        # Create or update device based on sensor type
+        # Create or update device based on device type
         if device_id not in self.data.devices:
-            device = self._create_device_from_jeedom(sensor, hub_id)
-            if device:
-                self.data.devices[device_id] = device
-                _LOGGER.info("Created device from Jeedom: %s (%s)", sensor.name, sensor.sensor_type)
+            ajax_device = self._create_device_from_jeedom(device, hub_id)
+            if ajax_device:
+                self.data.devices[device_id] = ajax_device
+                _LOGGER.info("Created Ajax device: %s (type: %s)", device.name, device.device_type)
         else:
-            device = self.data.devices[device_id]
+            ajax_device = self.data.devices[device_id]
         
-        # Update device state based on sensor type
-        if device:
-            self._update_device_from_jeedom(device, sensor)
+        # Update device state
+        if ajax_device:
+            self._update_device_from_jeedom(ajax_device, device)
         
         # Notify listeners
         self.async_set_updated_data(self.data)
     
-    def _create_device_from_jeedom(self, sensor, hub_id: str) -> Optional[AjaxDevice]:
-        """Create a device from Jeedom sensor data."""
+    def _create_device_from_jeedom(self, jeedom_device, hub_id: str) -> Optional[AjaxDevice]:
+        """Create an Ajax device from Jeedom device data."""
         from .models import AjaxDoorSensor, AjaxMotionSensor, AjaxLeakSensor, AjaxFireSensor
         from .const import AjaxDeviceType
         
-        sensor_type = sensor.sensor_type
-        device_id = sensor.entity_id
-        name = sensor.name
+        device_type = jeedom_device.device_type
+        device_id = jeedom_device.device_id
+        name = jeedom_device.name
         
-        if sensor_type == "door":
+        if device_type == "hub":
+            # Update existing hub instead of creating new device
+            if self.data.hub:
+                self.data.hub.battery_level = jeedom_device.battery
+                self.data.hub.online = jeedom_device.online
+                return None
+            return AjaxDevice(
+                device_id=device_id,
+                device_type=AjaxDeviceType.HUB_2,
+                name=name,
+                hub_id=hub_id,
+            )
+        elif device_type == "door":
             return AjaxDoorSensor(
                 device_id=device_id,
                 device_type=AjaxDeviceType.DOOR_PROTECT,
                 name=name,
                 hub_id=hub_id,
-                is_open=bool(sensor.value) if sensor.is_binary else False,
+                is_open=jeedom_device.is_open or False,
             )
-        elif sensor_type == "motion":
+        elif device_type == "motion":
             return AjaxMotionSensor(
                 device_id=device_id,
                 device_type=AjaxDeviceType.MOTION_PROTECT,
                 name=name,
                 hub_id=hub_id,
-                motion_detected=bool(sensor.value) if sensor.is_binary else False,
+                motion_detected=jeedom_device.motion or False,
             )
-        elif sensor_type == "leak":
+        elif device_type == "leak":
             return AjaxLeakSensor(
                 device_id=device_id,
                 device_type=AjaxDeviceType.LEAKS_PROTECT,
                 name=name,
                 hub_id=hub_id,
-                leak_detected=bool(sensor.value) if sensor.is_binary else False,
+                leak_detected=jeedom_device.leak or False,
             )
-        elif sensor_type in ["smoke", "fire"]:
+        elif device_type == "smoke":
             return AjaxFireSensor(
                 device_id=device_id,
                 device_type=AjaxDeviceType.FIRE_PROTECT,
                 name=name,
                 hub_id=hub_id,
-                smoke_detected=bool(sensor.value) if sensor.is_binary else False,
+                smoke_detected=jeedom_device.smoke or False,
                 heat_detected=False,
                 co_detected=False,
             )
-        elif sensor_type == "tamper":
+        elif device_type == "siren":
             return AjaxDevice(
                 device_id=device_id,
-                device_type=AjaxDeviceType.MOTION_PROTECT,
+                device_type=AjaxDeviceType.STREET_SIREN,
                 name=name,
                 hub_id=hub_id,
-                tamper=bool(sensor.value) if sensor.is_binary else False,
             )
-        elif sensor_type == "glass":
+        elif device_type == "keypad":
             return AjaxDevice(
                 device_id=device_id,
-                device_type=AjaxDeviceType.GLASS_PROTECT,
+                device_type=AjaxDeviceType.KEYPAD,
+                name=name,
+                hub_id=hub_id,
+            )
+        elif device_type == "remote":
+            return AjaxDevice(
+                device_id=device_id,
+                device_type=AjaxDeviceType.SPACE_CONTROL,
                 name=name,
                 hub_id=hub_id,
             )
@@ -255,32 +273,35 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
                 hub_id=hub_id,
             )
     
-    def _update_device_from_jeedom(self, device: AjaxDevice, sensor) -> None:
-        """Update device state from Jeedom sensor."""
-        sensor_type = sensor.sensor_type
-        value = bool(sensor.value) if sensor.is_binary else sensor.value
+    def _update_device_from_jeedom(self, ajax_device: AjaxDevice, jeedom_device) -> None:
+        """Update Ajax device state from Jeedom device."""
+        # Update common attributes
+        if jeedom_device.online is not None:
+            ajax_device.online = jeedom_device.online
+        if jeedom_device.tamper is not None:
+            ajax_device.tamper = jeedom_device.tamper
+        if jeedom_device.battery is not None:
+            ajax_device.battery_level = jeedom_device.battery
+        if jeedom_device.temperature is not None:
+            ajax_device.temperature = jeedom_device.temperature
+        if jeedom_device.signal is not None:
+            ajax_device.signal_level = jeedom_device.signal
         
-        if sensor_type == "door" and hasattr(device, "is_open"):
-            device.is_open = value
-        elif sensor_type == "motion" and hasattr(device, "motion_detected"):
-            device.motion_detected = value
-        elif sensor_type == "leak" and hasattr(device, "leak_detected"):
-            device.leak_detected = value
-        elif sensor_type in ["smoke", "fire"] and hasattr(device, "smoke_detected"):
-            device.smoke_detected = value
-        elif sensor_type == "tamper":
-            device.tamper = value
-        elif sensor_type == "battery":
-            device.battery_level = int(value) if not sensor.is_binary else None
-        elif sensor_type == "signal":
-            device.signal_level = int(value) if not sensor.is_binary else None
-        elif sensor_type == "temperature":
-            device.temperature = float(value) if not sensor.is_binary else None
+        # Update type-specific attributes
+        if hasattr(ajax_device, "is_open") and jeedom_device.is_open is not None:
+            ajax_device.is_open = jeedom_device.is_open
+        if hasattr(ajax_device, "motion_detected") and jeedom_device.motion is not None:
+            ajax_device.motion_detected = jeedom_device.motion
+        if hasattr(ajax_device, "leak_detected") and jeedom_device.leak is not None:
+            ajax_device.leak_detected = jeedom_device.leak
+        if hasattr(ajax_device, "smoke_detected") and jeedom_device.smoke is not None:
+            ajax_device.smoke_detected = jeedom_device.smoke
         
-        # Store additional attributes from Jeedom
-        if not hasattr(device, "jeedom_attributes"):
-            device.jeedom_attributes = {}
-        device.jeedom_attributes.update(sensor.attributes)
+        # Store Jeedom-specific attributes
+        if not hasattr(ajax_device, "jeedom_data"):
+            ajax_device.jeedom_data = {}
+        ajax_device.jeedom_data["zone"] = jeedom_device.zone
+        ajax_device.jeedom_data["last_update"] = jeedom_device.last_update.isoformat()
     
     @property
     def jeedom_mqtt_handler(self):
