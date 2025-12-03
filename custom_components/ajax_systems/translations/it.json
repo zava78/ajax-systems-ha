@@ -2,132 +2,31 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configurazione Ajax Systems",
-        "description": "Scegli il metodo di integrazione per il tuo sistema di allarme Ajax.",
-        "data": {
-          "integration_type": "Tipo di Integrazione"
-        },
-        "data_description": {
-          "integration_type": "SIA: Ricevi eventi tramite protocollo SIA DC-09\nJeedom MQTT: Ricevi stati sensori da Jeedom (consigliato)\nJeedom Server: Controllo completo tramite API Jeedom\nMQTT: Bridge Jeedom legacy"
-        }
-      },
-      "sia": {
-        "title": "Configurazione Protocollo SIA",
-        "description": "Configura il ricevitore SIA DC-09. Imposta il tuo Ajax Hub per inviare eventi a questa istanza di Home Assistant.",
+        "title": "Ajax Systems MQTT Bridge",
+        "description": "Configura la connessione per ricevere gli stati dei sensori Ajax da Jeedom via MQTT. Richiede Jeedom con il plugin ajaxSystem che pubblica su MQTT.",
         "data": {
           "hub_id": "ID Hub",
-          "sia_port": "Porta SIA",
-          "sia_account": "Codice Account",
-          "sia_encryption_key": "Chiave di Crittografia (opzionale)",
-          "mqtt_publish_enabled": "Pubblica stati su MQTT",
-          "mqtt_publish_prefix": "Prefisso Topic MQTT",
-          "mqtt_publish_attributes": "Includi attributi in MQTT",
-          "mqtt_discovery_enabled": "Abilita MQTT Discovery"
-        },
-        "data_description": {
-          "hub_id": "Identificativo univoco per il tuo hub",
-          "sia_port": "Porta per ricevere eventi SIA (default: 2410)",
-          "sia_account": "Codice account configurato nel tuo Ajax Hub",
-          "sia_encryption_key": "Chiave AES se la crittografia è abilitata",
-          "mqtt_publish_enabled": "Pubblica le variazioni di stato delle entità sul broker MQTT locale",
-          "mqtt_publish_prefix": "Prefisso per i topic MQTT (es. ajax)",
-          "mqtt_publish_attributes": "Includi gli attributi delle entità nei messaggi MQTT",
-          "mqtt_discovery_enabled": "Crea configurazione MQTT discovery per altri sistemi"
-        }
-      },
-      "jeedom_mqtt": {
-        "title": "Configurazione Jeedom MQTT",
-        "description": "Sottoscrivi gli eventi MQTT di Jeedom per ricevere gli stati dei sensori Ajax. Richiede Jeedom con il plugin ajaxSystem che pubblica su MQTT.",
-        "data": {
           "jeedom_mqtt_topic": "Topic MQTT",
           "jeedom_mqtt_language": "Lingua Traduzione",
-          "hub_id": "ID Hub",
-          "use_sia": "Abilita anche ricevitore SIA",
+          "use_sia": "Abilita ricevitore SIA (opzionale)",
           "sia_port": "Porta SIA",
           "sia_account": "Codice Account",
-          "mqtt_publish_enabled": "Pubblica stati su MQTT",
-          "mqtt_publish_prefix": "Prefisso Topic MQTT",
-          "mqtt_publish_attributes": "Includi attributi in MQTT",
-          "mqtt_discovery_enabled": "Abilita MQTT Discovery"
+          "sia_encryption_key": "Chiave di Crittografia"
         },
         "data_description": {
+          "hub_id": "Identificativo univoco per il tuo hub",
           "jeedom_mqtt_topic": "Topic MQTT dove Jeedom pubblica gli eventi Ajax (default: jeedom/cms/event)",
           "jeedom_mqtt_language": "Lingua in cui tradurre i nomi dei sensori dal francese",
-          "hub_id": "Identificativo univoco per il tuo hub",
-          "use_sia": "Abilita ricevitore SIA per ulteriori tipi di eventi",
+          "use_sia": "Abilita ricevitore SIA DC-09 per ulteriori eventi allarme in tempo reale",
           "sia_port": "Porta per ricevere eventi SIA (default: 2410)",
           "sia_account": "Codice account configurato nel tuo Ajax Hub",
-          "mqtt_publish_enabled": "Pubblica le variazioni di stato delle entità sul broker MQTT locale",
-          "mqtt_publish_prefix": "Prefisso per i topic MQTT (es. ajax)",
-          "mqtt_publish_attributes": "Includi gli attributi delle entità nei messaggi MQTT",
-          "mqtt_discovery_enabled": "Crea configurazione MQTT discovery per altri sistemi"
-        }
-      },
-      "mqtt": {
-        "title": "Configurazione Bridge MQTT",
-        "description": "Configura il bridge MQTT usando Jeedom. Richiede Jeedom con plugin Ajax in esecuzione.",
-        "data": {
-          "hub_id": "ID Hub",
-          "mqtt_prefix": "Prefisso Topic MQTT",
-          "use_sia": "Abilita anche ricevitore SIA",
-          "sia_port": "Porta SIA"
-        },
-        "data_description": {
-          "hub_id": "Identificativo univoco per il tuo hub",
-          "mqtt_prefix": "Prefisso topic MQTT usato da Jeedom",
-          "use_sia": "Abilita ricevitore SIA per eventi diretti dall'hub",
-          "sia_port": "Porta per ricevere eventi SIA"
-        }
-      },
-      "jeedom": {
-        "title": "Configurazione Server Jeedom",
-        "description": "Connetti a un server Jeedom locale o remoto con il plugin ajaxSystem installato. Fornisce CONTROLLO COMPLETO incluso arm/disarm.",
-        "data": {
-          "jeedom_host": "Indirizzo Server Jeedom",
-          "jeedom_port": "Porta Jeedom",
-          "jeedom_use_ssl": "Usa HTTPS",
-          "jeedom_api_key": "Chiave API Jeedom",
-          "ajax_username": "Email App Ajax",
-          "ajax_password": "Password App Ajax",
-          "hub_id": "ID Hub",
-          "use_sia": "Abilita anche ricevitore SIA (consigliato)",
-          "sia_port": "Porta SIA",
-          "sia_account": "Codice Account",
-          "mqtt_publish_enabled": "Pubblica stati su MQTT",
-          "mqtt_publish_prefix": "Prefisso Topic MQTT",
-          "mqtt_publish_attributes": "Includi attributi in MQTT",
-          "mqtt_discovery_enabled": "Abilita MQTT Discovery"
-        },
-        "data_description": {
-          "jeedom_host": "Indirizzo IP o hostname del server Jeedom (es. 192.168.1.100 o jeedom.local)",
-          "jeedom_port": "Numero porta (default 80 per HTTP, 443 per HTTPS)",
-          "jeedom_use_ssl": "Abilita connessione HTTPS (consigliato per accesso remoto)",
-          "jeedom_api_key": "Chiave API da Jeedom Configurazione > API",
-          "ajax_username": "La tua email dell'app Ajax Systems",
-          "ajax_password": "La tua password dell'app Ajax Systems",
-          "hub_id": "Identificativo univoco per il tuo hub",
-          "use_sia": "Abilita SIA per eventi in tempo reale più veloci",
-          "sia_port": "Porta per ricevere eventi SIA",
-          "sia_account": "Codice account configurato nel tuo Ajax Hub",
-          "mqtt_publish_enabled": "Pubblica le variazioni di stato delle entità sul broker MQTT locale",
-          "mqtt_publish_prefix": "Prefisso per i topic MQTT (es. ajax)",
-          "mqtt_publish_attributes": "Includi gli attributi delle entità nei messaggi MQTT",
-          "mqtt_discovery_enabled": "Crea configurazione MQTT discovery per altri sistemi"
+          "sia_encryption_key": "Chiave AES se la crittografia è abilitata"
         }
       }
     },
     "error": {
-      "cloud_api_closed": "L'API Cloud di Ajax è stata chiusa nel 2018 e non funziona più. Usa il Protocollo SIA.",
-      "invalid_auth": "Username o password non validi. Controlla le credenziali dell'app Ajax.",
-      "invalid_jeedom_auth": "Chiave API Jeedom o credenziali Ajax non valide. Controlla la configurazione.",
-      "jeedom_service_unavailable": "Plugin ajaxSystem non trovato. Assicurati che il plugin sia installato e configurato sul tuo server Jeedom.",
-      "jeedom_proxy_error": "Errore di connessione al server Jeedom. Verifica che indirizzo, porta e chiave API siano corretti.",
-      "no_hubs": "Nessun hub Ajax trovato. Controlla le credenziali dell'app Ajax.",
-      "cannot_connect": "Impossibile connettersi. Verifica la connessione internet.",
-      "auth_failed": "Autenticazione fallita. Controlla le tue credenziali.",
-      "connection_failed": "Impossibile connettersi.",
-      "invalid_port": "Numero di porta non valido.",
-      "port_in_use": "La porta è già in uso.",
+      "cannot_connect": "Impossibile connettersi al broker MQTT. Verifica la configurazione MQTT di Home Assistant.",
+      "invalid_topic": "Formato topic MQTT non valido.",
       "unknown": "Si è verificato un errore imprevisto. Controlla i log per i dettagli."
     },
     "abort": {
@@ -139,18 +38,18 @@
       "init": {
         "title": "Opzioni Ajax Systems",
         "data": {
+          "jeedom_mqtt_topic": "Topic MQTT",
+          "jeedom_mqtt_language": "Lingua Traduzione",
+          "use_sia": "Abilita ricevitore SIA",
           "sia_port": "Porta SIA",
-          "sia_account": "Codice Account",
-          "mqtt_publish_enabled": "Pubblica stati su MQTT",
-          "mqtt_publish_prefix": "Prefisso Topic MQTT",
-          "mqtt_publish_attributes": "Includi attributi in MQTT",
-          "mqtt_discovery_enabled": "Abilita MQTT Discovery"
+          "sia_account": "Codice Account"
         },
         "data_description": {
-          "mqtt_publish_enabled": "Pubblica le variazioni di stato delle entità sul broker MQTT locale",
-          "mqtt_publish_prefix": "Prefisso per i topic MQTT (es. ajax)",
-          "mqtt_publish_attributes": "Includi gli attributi delle entità nei messaggi MQTT",
-          "mqtt_discovery_enabled": "Crea configurazione MQTT discovery per altri sistemi"
+          "jeedom_mqtt_topic": "Topic MQTT dove Jeedom pubblica gli eventi Ajax",
+          "jeedom_mqtt_language": "Lingua in cui tradurre i nomi dei sensori dal francese",
+          "use_sia": "Abilita ricevitore SIA DC-09 per ulteriori eventi allarme in tempo reale",
+          "sia_port": "Porta per ricevere eventi SIA (default: 2410)",
+          "sia_account": "Codice account configurato nel tuo Ajax Hub"
         }
       }
     }
