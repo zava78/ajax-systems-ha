@@ -453,17 +453,22 @@ class JeedomMqttHandler:
                 _LOGGER.warning("MQTT not available, cannot subscribe to Jeedom events")
                 return False
             
-            # Subscribe to topic
+            # Subscribe to topic with wildcard to catch all sub-topics
+            # Jeedom publishes to jeedom/cmd/event/1, jeedom/cmd/event/2, etc.
+            subscribe_topic = self._topic
+            if not subscribe_topic.endswith("#") and not subscribe_topic.endswith("+"):
+                subscribe_topic = f"{self._topic.rstrip('/')}/#"
+            
             self._unsubscribe = await mqtt.async_subscribe(
                 self._hass,
-                self._topic,
+                subscribe_topic,
                 self._handle_message,
                 qos=0,
             )
             
             _LOGGER.info(
                 "Subscribed to Jeedom MQTT topic: %s (language: %s)",
-                self._topic,
+                subscribe_topic,
                 self._language,
             )
             return True
