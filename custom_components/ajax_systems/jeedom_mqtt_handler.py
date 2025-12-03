@@ -132,15 +132,36 @@ TRANSLATIONS = {
 }
 
 # Device type detection patterns
+# Device type detection based on name patterns
 DEVICE_TYPE_PATTERNS = {
-    "hub": ["hub", "1020", "centrale"],
-    "door": ["door", "protect", "fin.", "porta", "finestra", "porte", "fenêtre"],
-    "motion": ["ir", "pir", "motion", "movimento"],
-    "siren": ["sirena", "sirène", "siren"],
+    "hub": ["hub", "1020", "centrale", "hub 2"],
+    "door": ["door", "doorprotect", "fin.", "porta", "finestra", "porte", "fenêtre", "ingresso", "entrata"],
+    "motion": ["ir", "pir", "motion", "movimento", "motionprotect"],
+    "siren": ["sirena", "sirène", "siren", "homesiren", "streetsiren"],
     "keypad": ["tastiera", "clavier", "keypad"],
     "remote": ["telecomando", "télécommande", "remote", "spacecontrol"],
-    "leak": ["leak", "fuite", "acqua", "water"],
-    "smoke": ["smoke", "fumée", "fire", "incendie"],
+    "leak": ["leak", "fuite", "acqua", "water", "leaksprotect"],
+    "smoke": ["smoke", "fumée", "fire", "incendie", "fireprotect"],
+}
+
+# Device type detection based on command names (more reliable)
+COMMAND_TO_DEVICE_TYPE = {
+    "Ouvert": "door",
+    "Fermé": "door", 
+    "Ouverte": "door",
+    "Fermée": "door",
+    "Ouverture": "door",
+    "Mouvement": "motion",
+    "Mouvement détecté": "motion",
+    "Fuite": "leak",
+    "Fuite détectée": "leak",
+    "Fuite d'eau": "leak",
+    "Inondation": "leak",
+    "Fumée": "smoke",
+    "Fumée détectée": "smoke",
+    "Incendie": "smoke",
+    "Ethernet": "hub",
+    "Alimentation secteur": "hub",
 }
 
 
@@ -330,8 +351,9 @@ class JeedomMqttHandler:
             
             # Get or create device
             device_id = self._get_device_id(device_name, zone)
+            is_new_device = device_id not in self._devices
             
-            if device_id not in self._devices:
+            if is_new_device:
                 device_type = self._detect_device_type(device_name)
                 self._devices[device_id] = JeedomDevice(
                     device_id=device_id,
@@ -346,13 +368,23 @@ class JeedomMqttHandler:
             
             device = self._devices[device_id]
             
+            # Update device type based on command if still unknown
+            if device.device_type == "unknown" and command_name in COMMAND_TO_DEVICE_TYPE:
+                device.device_type = COMMAND_TO_DEVICE_TYPE[command_name]
+                _LOGGER.info(
+                    "Updated device type for %s: %s (from command %s)",
+                    device.name, device.device_type, command_name
+                )
+            
             # Update device from command
             changed = device.update_from_command(command_name, value, topic_id)
             
-            if changed:
-                # Return the attribute that changed
+            # Always notify on first discovery or state change
+            if changed or is_new_device:
+                # Return the attribute that changed (or "device_type" for new devices)
                 mapping = COMMAND_MAPPING.get(command_name, {})
-                return (device, mapping.get("attr", command_name))
+                attr = mapping.get("attr", command_name) if changed else "device_type"
+                return (device, attr)
             
             return (device, None)
             

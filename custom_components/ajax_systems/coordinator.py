@@ -153,10 +153,10 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
             return False
     
     @callback
-    def _handle_jeedom_sensor_update(self, device, changed_attr: str) -> None:
+    def _handle_jeedom_sensor_update(self, device, changed_attr: Optional[str]) -> None:
         """Handle device update from Jeedom MQTT."""
         from .jeedom_mqtt_handler import JeedomDevice
-        from .models import AjaxDoorSensor, AjaxMotionSensor, AjaxLeakSensor, AjaxFireSensor
+        from .models import AjaxDoorSensor, AjaxMotionSensor, AjaxLeakSensor, AjaxFireSensor, AjaxDevice
         from .const import AjaxDeviceType
         
         if not isinstance(device, JeedomDevice):
@@ -172,12 +172,27 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
         hub_id = self.data.hub.device_id if self.data.hub else "ajax_hub"
         device_id = device.device_id
         
+        # Check if device type was updated from unknown to known
+        should_recreate = False
+        if device_id in self.data.devices:
+            existing = self.data.devices[device_id]
+            # If existing device is generic but now we know the specific type, recreate
+            if (type(existing) == AjaxDevice and 
+                device.device_type != "unknown" and 
+                device.device_type != "hub"):
+                should_recreate = True
+                _LOGGER.info(
+                    "Upgrading device %s from generic to %s", 
+                    device.name, device.device_type
+                )
+        
         # Create or update device based on device type
-        if device_id not in self.data.devices:
+        if device_id not in self.data.devices or should_recreate:
             ajax_device = self._create_device_from_jeedom(device, hub_id)
             if ajax_device:
                 self.data.devices[device_id] = ajax_device
-                _LOGGER.info("Created Ajax device: %s (type: %s)", device.name, device.device_type)
+                action = "Upgraded" if should_recreate else "Created"
+                _LOGGER.info("%s Ajax device: %s (type: %s)", action, device.name, device.device_type)
         else:
             ajax_device = self.data.devices[device_id]
         
@@ -265,13 +280,57 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
                 hub_id=hub_id,
             )
         else:
-            # Generic device for unknown types
-            return AjaxDevice(
-                device_id=device_id,
-                device_type=AjaxDeviceType.MOTION_PROTECT,
-                name=name,
-                hub_id=hub_id,
+            # For unknown types, try to infer from available attributes
+            _LOGGER.warning(
+                "Unknown device type '%s' for device '%s'. Available attrs: is_open=%s, motion=%s, leak=%s, smoke=%s",
+                device_type, name, 
+                jeedom_device.is_open, jeedom_device.motion, 
+                jeedom_device.leak, jeedom_device.smoke
             )
+            
+            # Infer device type from available attributes
+            if jeedom_device.is_open is not None:
+                return AjaxDoorSensor(
+                    device_id=device_id,
+                    device_type=AjaxDeviceType.DOOR_PROTECT,
+                    name=name,
+                    hub_id=hub_id,
+                    is_open=jeedom_device.is_open or False,
+                )
+            elif jeedom_device.motion is not None:
+                return AjaxMotionSensor(
+                    device_id=device_id,
+                    device_type=AjaxDeviceType.MOTION_PROTECT,
+                    name=name,
+                    hub_id=hub_id,
+                    motion_detected=jeedom_device.motion or False,
+                )
+            elif jeedom_device.leak is not None:
+                return AjaxLeakSensor(
+                    device_id=device_id,
+                    device_type=AjaxDeviceType.LEAKS_PROTECT,
+                    name=name,
+                    hub_id=hub_id,
+                    leak_detected=jeedom_device.leak or False,
+                )
+            elif jeedom_device.smoke is not None:
+                return AjaxFireSensor(
+                    device_id=device_id,
+                    device_type=AjaxDeviceType.FIRE_PROTECT,
+                    name=name,
+                    hub_id=hub_id,
+                    smoke_detected=jeedom_device.smoke or False,
+                    heat_detected=False,
+                    co_detected=False,
+                )
+            else:
+                # Generic device for truly unknown types
+                return AjaxDevice(
+                    device_id=device_id,
+                    device_type=AjaxDeviceType.MOTION_PROTECT,
+                    name=name,
+                    hub_id=hub_id,
+                )
     
     def _update_device_from_jeedom(self, ajax_device: AjaxDevice, jeedom_device) -> None:
         """Update Ajax device state from Jeedom device."""
