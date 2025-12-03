@@ -5,23 +5,24 @@ from datetime import timedelta
 from typing import Any, Optional
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import AjaxCloudApi, AjaxApiError, AjaxAuthError
 from .const import (
     CONF_HUB_ID,
     CONF_MQTT_PUBLISH_ENABLED,
     CONF_MQTT_PUBLISH_PREFIX,
     CONF_MQTT_PUBLISH_ATTRIBUTES,
     CONF_MQTT_DISCOVERY_ENABLED,
+    CONF_JEEDOM_MQTT_ENABLED,
+    CONF_JEEDOM_MQTT_TOPIC,
+    CONF_JEEDOM_MQTT_LANGUAGE,
     CONF_SIA_ACCOUNT,
     CONF_SIA_PORT,
-    CONF_USE_CLOUD,
     CONF_USE_SIA,
     DEFAULT_MQTT_PUBLISH_PREFIX,
     DEFAULT_SIA_PORT,
+    DEFAULT_JEEDOM_MQTT_TOPIC,
     DOMAIN,
 )
 from .models import AjaxCoordinator, AjaxDevice, AjaxHub, SiaEvent
@@ -51,13 +52,13 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
         self.entry = entry
         self.data = AjaxCoordinator()
         
-        # API client (for cloud mode)
-        self._api: Optional[AjaxCloudApi] = None
-        self._use_cloud = entry.data.get(CONF_USE_CLOUD, False)
-        
         # SIA receiver
         self._sia_receiver: Optional[SiaReceiver] = None
         self._use_sia = entry.data.get(CONF_USE_SIA, True)
+        
+        # Jeedom MQTT handler
+        self._jeedom_mqtt_handler = None
+        self._use_jeedom_mqtt = entry.data.get(CONF_JEEDOM_MQTT_ENABLED, False)
         
         # MQTT Publisher
         self._mqtt_publisher = None
@@ -68,40 +69,7 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
     
     async def async_setup(self) -> bool:
         """Set up the coordinator."""
-        cloud_ok = False
         sia_ok = False
-        
-        # Set up cloud API if enabled
-        if self._use_cloud:
-            username = self.entry.data.get(CONF_USERNAME)
-            password = self.entry.data.get(CONF_PASSWORD)
-            
-            if username and password:
-                self._api = AjaxCloudApi(username, password)
-                try:
-                    await self._api.authenticate()
-                    _LOGGER.info("Connected to Ajax Cloud API")
-                    # Get initial data
-                    hubs = await self._api.get_hubs()
-                    if hubs:
-                        self.data.hub = hubs[0]
-                        _LOGGER.info("Found hub: %s", self.data.hub.name)
-                        devices = await self._api.get_devices(self.data.hub.device_id)
-                        for device in devices:
-                            self.data.devices[device.device_id] = device
-                        self.data.connected = True
-                        cloud_ok = True
-                    else:
-                        _LOGGER.warning("No hubs found in Ajax Cloud")
-                except AjaxAuthError as err:
-                    _LOGGER.error("Cloud API authentication failed: %s", err)
-                    self._use_cloud = False
-                except AjaxApiError as err:
-                    _LOGGER.warning("Cloud API error: %s, will try SIA", err)
-                    self._use_cloud = False
-                except Exception as err:
-                    _LOGGER.error("Unexpected cloud API error: %s", err)
-                    self._use_cloud = False
         
         # Set up SIA receiver if enabled
         if self._use_sia:
@@ -121,6 +89,11 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
             except Exception as err:
                 _LOGGER.warning("SIA receiver error: %s", err)
         
+        # Set up Jeedom MQTT handler if enabled
+        jeedom_mqtt_ok = False
+        if self._use_jeedom_mqtt:
+            jeedom_mqtt_ok = await self._setup_jeedom_mqtt()
+        
         # Create a default hub if we don't have one from cloud
         if self.data.hub is None:
             hub_id = self.entry.data.get(CONF_HUB_ID, "ajax_hub")
@@ -135,16 +108,184 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
             _LOGGER.info("Created default hub with ID: %s", hub_id)
         
         # Success if at least one method works, or if we just created a default hub
-        if cloud_ok or sia_ok:
-            _LOGGER.info("Ajax Systems coordinator setup complete (Cloud: %s, SIA: %s)", cloud_ok, sia_ok)
+        if sia_ok or jeedom_mqtt_ok:
+            _LOGGER.info("Ajax Systems coordinator setup complete (SIA: %s, Jeedom MQTT: %s)", 
+                        sia_ok, jeedom_mqtt_ok)
             return True
         
-        # Even without cloud/SIA, allow setup with default hub for testing
+        # Even without SIA/Jeedom, allow setup with default hub for testing
         _LOGGER.warning(
-            "Neither Cloud API nor SIA receiver could be started. "
+            "Neither SIA receiver nor Jeedom MQTT could be started. "
             "Integration will work with limited functionality."
         )
         return True  # Allow setup anyway with default hub
+    
+    async def _setup_jeedom_mqtt(self) -> bool:
+        """Set up Jeedom MQTT handler."""
+        try:
+            from .jeedom_mqtt_handler import JeedomMqttHandler
+            
+            topic = self.entry.data.get(CONF_JEEDOM_MQTT_TOPIC, DEFAULT_JEEDOM_MQTT_TOPIC)
+            language = self.entry.data.get(CONF_JEEDOM_MQTT_LANGUAGE, "it")
+            
+            self._jeedom_mqtt_handler = JeedomMqttHandler(
+                hass=self.hass,
+                topic=topic,
+                language=language,
+            )
+            
+            # Add callback for sensor updates
+            self._jeedom_mqtt_handler.add_callback(self._handle_jeedom_sensor_update)
+            
+            if await self._jeedom_mqtt_handler.async_start():
+                _LOGGER.info("Jeedom MQTT handler started (topic: %s, language: %s)", topic, language)
+                self.data.connected = True
+                return True
+            else:
+                _LOGGER.warning("Jeedom MQTT handler failed to start")
+                return False
+                
+        except ImportError as err:
+            _LOGGER.error("Failed to import Jeedom MQTT handler: %s", err)
+            return False
+        except Exception as err:
+            _LOGGER.error("Error setting up Jeedom MQTT: %s", err)
+            return False
+    
+    @callback
+    def _handle_jeedom_sensor_update(self, sensor) -> None:
+        """Handle sensor update from Jeedom MQTT."""
+        from .jeedom_mqtt_handler import JeedomSensorState
+        from .models import AjaxDoorSensor, AjaxMotionSensor, AjaxLeakSensor, AjaxFireSensor
+        from .const import AjaxDeviceType
+        
+        if not isinstance(sensor, JeedomSensorState):
+            return
+        
+        _LOGGER.debug(
+            "Jeedom sensor update: %s = %s (type: %s)",
+            sensor.entity_id,
+            sensor.value,
+            sensor.sensor_type,
+        )
+        
+        hub_id = self.data.hub.device_id if self.data.hub else "ajax_hub"
+        device_id = sensor.entity_id
+        
+        # Create or update device based on sensor type
+        if device_id not in self.data.devices:
+            device = self._create_device_from_jeedom(sensor, hub_id)
+            if device:
+                self.data.devices[device_id] = device
+                _LOGGER.info("Created device from Jeedom: %s (%s)", sensor.name, sensor.sensor_type)
+        else:
+            device = self.data.devices[device_id]
+        
+        # Update device state based on sensor type
+        if device:
+            self._update_device_from_jeedom(device, sensor)
+        
+        # Notify listeners
+        self.async_set_updated_data(self.data)
+    
+    def _create_device_from_jeedom(self, sensor, hub_id: str) -> Optional[AjaxDevice]:
+        """Create a device from Jeedom sensor data."""
+        from .models import AjaxDoorSensor, AjaxMotionSensor, AjaxLeakSensor, AjaxFireSensor
+        from .const import AjaxDeviceType
+        
+        sensor_type = sensor.sensor_type
+        device_id = sensor.entity_id
+        name = sensor.name
+        
+        if sensor_type == "door":
+            return AjaxDoorSensor(
+                device_id=device_id,
+                device_type=AjaxDeviceType.DOOR_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                is_open=bool(sensor.value) if sensor.is_binary else False,
+            )
+        elif sensor_type == "motion":
+            return AjaxMotionSensor(
+                device_id=device_id,
+                device_type=AjaxDeviceType.MOTION_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                motion_detected=bool(sensor.value) if sensor.is_binary else False,
+            )
+        elif sensor_type == "leak":
+            return AjaxLeakSensor(
+                device_id=device_id,
+                device_type=AjaxDeviceType.LEAKS_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                leak_detected=bool(sensor.value) if sensor.is_binary else False,
+            )
+        elif sensor_type in ["smoke", "fire"]:
+            return AjaxFireSensor(
+                device_id=device_id,
+                device_type=AjaxDeviceType.FIRE_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                smoke_detected=bool(sensor.value) if sensor.is_binary else False,
+                heat_detected=False,
+                co_detected=False,
+            )
+        elif sensor_type == "tamper":
+            return AjaxDevice(
+                device_id=device_id,
+                device_type=AjaxDeviceType.MOTION_PROTECT,
+                name=name,
+                hub_id=hub_id,
+                tamper=bool(sensor.value) if sensor.is_binary else False,
+            )
+        elif sensor_type == "glass":
+            return AjaxDevice(
+                device_id=device_id,
+                device_type=AjaxDeviceType.GLASS_PROTECT,
+                name=name,
+                hub_id=hub_id,
+            )
+        else:
+            # Generic device for unknown types
+            return AjaxDevice(
+                device_id=device_id,
+                device_type=AjaxDeviceType.MOTION_PROTECT,
+                name=name,
+                hub_id=hub_id,
+            )
+    
+    def _update_device_from_jeedom(self, device: AjaxDevice, sensor) -> None:
+        """Update device state from Jeedom sensor."""
+        sensor_type = sensor.sensor_type
+        value = bool(sensor.value) if sensor.is_binary else sensor.value
+        
+        if sensor_type == "door" and hasattr(device, "is_open"):
+            device.is_open = value
+        elif sensor_type == "motion" and hasattr(device, "motion_detected"):
+            device.motion_detected = value
+        elif sensor_type == "leak" and hasattr(device, "leak_detected"):
+            device.leak_detected = value
+        elif sensor_type in ["smoke", "fire"] and hasattr(device, "smoke_detected"):
+            device.smoke_detected = value
+        elif sensor_type == "tamper":
+            device.tamper = value
+        elif sensor_type == "battery":
+            device.battery_level = int(value) if not sensor.is_binary else None
+        elif sensor_type == "signal":
+            device.signal_level = int(value) if not sensor.is_binary else None
+        elif sensor_type == "temperature":
+            device.temperature = float(value) if not sensor.is_binary else None
+        
+        # Store additional attributes from Jeedom
+        if not hasattr(device, "jeedom_attributes"):
+            device.jeedom_attributes = {}
+        device.jeedom_attributes.update(sensor.attributes)
+    
+    @property
+    def jeedom_mqtt_handler(self):
+        """Get Jeedom MQTT handler."""
+        return self._jeedom_mqtt_handler
     
     async def async_setup_mqtt_publisher(self) -> None:
         """Set up MQTT publisher after entities are created."""
@@ -207,38 +348,17 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
     
     async def async_shutdown(self) -> None:
         """Shut down the coordinator."""
-        if self._api:
-            await self._api.close()
-        
         if self._sia_receiver:
             await self._sia_receiver.stop()
+        
+        if self._jeedom_mqtt_handler:
+            await self._jeedom_mqtt_handler.async_stop()
         
         if self._mqtt_publisher:
             await self._mqtt_publisher.async_stop()
     
     async def _async_update_data(self) -> AjaxCoordinator:
         """Fetch data from Ajax."""
-        if self._use_cloud and self._api:
-            try:
-                # Refresh hub info
-                if self.data.hub:
-                    hub = await self._api.get_hub_info(self.data.hub.device_id)
-                    if hub:
-                        self.data.hub = hub
-                    
-                    # Refresh device states
-                    devices = await self._api.get_devices(self.data.hub.device_id)
-                    for device in devices:
-                        self.data.update_device(device)
-                
-                self.data.connected = True
-                
-            except AjaxAuthError:
-                _LOGGER.warning("Authentication expired, re-authenticating")
-                await self._api.authenticate()
-            except AjaxApiError as err:
-                raise UpdateFailed(f"Error fetching data: {err}") from err
-        
         # SIA doesn't poll, it receives push events
         return self.data
     
@@ -359,21 +479,18 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
     
     async def async_arm(self) -> bool:
         """Arm the alarm."""
-        if self._use_cloud and self._api and self.data.hub:
-            return await self._api.arm(self.data.hub.device_id)
-        _LOGGER.warning("Arm command not available without cloud API")
+        # Arm command requires Jeedom proxy
+        _LOGGER.warning("Arm command requires Jeedom proxy integration")
         return False
     
     async def async_disarm(self) -> bool:
         """Disarm the alarm."""
-        if self._use_cloud and self._api and self.data.hub:
-            return await self._api.disarm(self.data.hub.device_id)
-        _LOGGER.warning("Disarm command not available without cloud API")
+        # Disarm command requires Jeedom proxy
+        _LOGGER.warning("Disarm command requires Jeedom proxy integration")
         return False
     
     async def async_arm_night(self) -> bool:
         """Set night mode."""
-        if self._use_cloud and self._api and self.data.hub:
-            return await self._api.night_mode(self.data.hub.device_id)
-        _LOGGER.warning("Night mode command not available without cloud API")
+        # Night mode command requires Jeedom proxy
+        _LOGGER.warning("Night mode command requires Jeedom proxy integration")
         return False

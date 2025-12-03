@@ -8,7 +8,7 @@
           "integration_type": "Integration Type"
         },
         "data_description": {
-          "integration_type": "SIA: Receive events via SIA DC-09 protocol (recommended)\nCloud: Full control via Ajax API (experimental)\nMQTT: Use Jeedom bridge as fallback"
+          "integration_type": "SIA: Receive events via SIA DC-09 protocol\nJeedom MQTT: Receive sensor states from Jeedom (recommended)\nJeedom Server: Full control via Jeedom API\nMQTT: Legacy Jeedom bridge"
         }
       },
       "sia": {
@@ -35,26 +35,32 @@
           "mqtt_discovery_enabled": "Create MQTT discovery config for other systems"
         }
       },
-      "cloud": {
-        "title": "⚠️ Ajax Cloud API - NOT WORKING",
-        "description": "WARNING: The Ajax Cloud API was CLOSED by Ajax Systems in 2018 and no longer works for home users. The Enterprise API is only available to commercial partners. Please use SIA Protocol instead for a working integration.",
+      "jeedom_mqtt": {
+        "title": "Jeedom MQTT Configuration",
+        "description": "Subscribe to Jeedom MQTT events to receive Ajax sensor states. Requires Jeedom with ajaxSystem plugin publishing to MQTT.",
         "data": {
-          "username": "Email",
-          "password": "Password",
+          "jeedom_mqtt_topic": "MQTT Topic",
+          "jeedom_mqtt_language": "Translation Language",
           "hub_id": "Hub ID",
-          "try_anyway": "Try anyway (will likely fail)",
           "use_sia": "Also enable SIA receiver",
           "sia_port": "SIA Port",
-          "sia_account": "Account Code"
+          "sia_account": "Account Code",
+          "mqtt_publish_enabled": "Publish states to MQTT",
+          "mqtt_publish_prefix": "MQTT Topic Prefix",
+          "mqtt_publish_attributes": "Include attributes in MQTT",
+          "mqtt_discovery_enabled": "Enable MQTT Discovery"
         },
         "data_description": {
-          "username": "Your Ajax app email address",
-          "password": "Your Ajax app password",
+          "jeedom_mqtt_topic": "MQTT topic where Jeedom publishes Ajax events (default: jeedom/cms/event)",
+          "jeedom_mqtt_language": "Language to translate French sensor names to",
           "hub_id": "Unique identifier for your hub",
-          "try_anyway": "Attempt connection even though it's not expected to work",
-          "use_sia": "Enable SIA receiver for faster event updates (recommended)",
-          "sia_port": "Port to listen for SIA events",
-          "sia_account": "Account code configured in your Ajax Hub"
+          "use_sia": "Enable SIA receiver for additional event types",
+          "sia_port": "Port to listen for SIA events (default: 2410)",
+          "sia_account": "Account code configured in your Ajax Hub",
+          "mqtt_publish_enabled": "Publish entity state changes to the local MQTT broker",
+          "mqtt_publish_prefix": "Topic prefix for MQTT messages (e.g. ajax)",
+          "mqtt_publish_attributes": "Include entity attributes in MQTT messages",
+          "mqtt_discovery_enabled": "Create MQTT discovery config for other systems"
         }
       },
       "mqtt": {
@@ -74,11 +80,13 @@
         }
       },
       "jeedom": {
-        "title": "Jeedom Cloud Proxy Configuration",
-        "description": "Use the Jeedom Market cloud as a proxy to control your Ajax system. This provides FULL CONTROL including arm/disarm. Requires a Jeedom Market account.",
+        "title": "Jeedom Server Configuration",
+        "description": "Connect to a local or remote Jeedom server with the ajaxSystem plugin installed. This provides FULL CONTROL including arm/disarm.",
         "data": {
-          "jeedom_username": "Jeedom Market Email",
-          "jeedom_password": "Jeedom Market Password",
+          "jeedom_host": "Jeedom Server Address",
+          "jeedom_port": "Jeedom Port",
+          "jeedom_use_ssl": "Use HTTPS",
+          "jeedom_api_key": "Jeedom API Key",
           "ajax_username": "Ajax App Email",
           "ajax_password": "Ajax App Password",
           "hub_id": "Hub ID",
@@ -91,8 +99,10 @@
           "mqtt_discovery_enabled": "Enable MQTT Discovery"
         },
         "data_description": {
-          "jeedom_username": "Your Jeedom Market email (market.jeedom.com)",
-          "jeedom_password": "Your Jeedom Market password",
+          "jeedom_host": "IP address or hostname of your Jeedom server (e.g. 192.168.1.100 or jeedom.local)",
+          "jeedom_port": "Port number (default 80 for HTTP, 443 for HTTPS)",
+          "jeedom_use_ssl": "Enable HTTPS connection (recommended for remote access)",
+          "jeedom_api_key": "API key from Jeedom Configuration > API",
           "ajax_username": "Your Ajax Systems app email",
           "ajax_password": "Your Ajax Systems app password",
           "hub_id": "Unique identifier for your hub",
@@ -109,9 +119,9 @@
     "error": {
       "cloud_api_closed": "The Ajax Cloud API was closed in 2018 and no longer works. Please use SIA Protocol instead.",
       "invalid_auth": "Invalid username or password. Check your Ajax app credentials.",
-      "invalid_jeedom_auth": "Invalid Jeedom Market credentials. Check your market.jeedom.com login.",
-      "jeedom_service_unavailable": "Jeedom Ajax proxy service not available (404). This feature requires a Jeedom installation with the ajaxSystem plugin. Use SIA Protocol for local-only operation.",
-      "jeedom_proxy_error": "Error connecting to Jeedom proxy. Ensure your Jeedom server is online with the ajaxSystem plugin installed and configured.",
+      "invalid_jeedom_auth": "Invalid Jeedom API key or Ajax credentials. Check your configuration.",
+      "jeedom_service_unavailable": "Jeedom ajaxSystem plugin not found. Ensure the plugin is installed and configured on your Jeedom server.",
+      "jeedom_proxy_error": "Error connecting to Jeedom server. Verify the server address, port, and API key are correct.",
       "no_hubs": "No Ajax hubs found. Check your Ajax app credentials.",
       "cannot_connect": "Failed to connect. Check your internet connection.",
       "auth_failed": "Authentication failed. Check your credentials.",

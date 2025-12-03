@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-12-03
+
+### Added
+- **Jeedom MQTT Integration** - Subscribe to Jeedom MQTT events
+  - Subscribe to `jeedom/cms/event` topic for Ajax sensor states
+  - Automatic translation from French to Italian/English
+  - Support for all sensor types (door, motion, leak, smoke, tamper, etc.)
+  - Dynamic entity creation from MQTT messages
+- **French Translation Dictionary** - Comprehensive translation of Ajax states
+  - Door/window states (Ouvert/Fermé → Open/Closed)
+  - Motion states (Mouvement détecté → Motion Detected)
+  - Alarm states (Armé/Désarmé → Armed/Disarmed)
+  - Tamper states (Trafiqué → Tampered)
+  - Battery, signal, temperature, and more
+
+### Changed
+- Added MQTT as a dependency in manifest
+- Updated configuration flow with new "Jeedom MQTT" option
+- Improved sensor type detection from Jeedom messages
+
+---
+
+## [1.1.0] - 2025-12-02
+
+### Added
+- **Jeedom Local/Remote Server Support** - Connect directly to your Jeedom server
+  - Configure server IP address or hostname
+  - Configure server port (HTTP/HTTPS)
+  - SSL/HTTPS support for secure connections
+  - API key authentication
+
+### Changed
+- Replaced Jeedom Market cloud proxy with direct Jeedom server connection
+- Updated configuration flow for Jeedom connection
+- Improved error messages for Jeedom connection issues
+
+### Removed
+- Jeedom Market credential-based authentication (replaced with API key)
+
+---
+
 ## [1.0.0] - 2025-12-02
 
 ### Added
@@ -79,5 +120,7 @@ After upgrading, you can:
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.2.0 | 2025-12-03 | Jeedom MQTT integration with French translation |
+| 1.1.0 | 2025-12-02 | Direct Jeedom server support |
 | 1.0.0 | 2025-12-02 | First stable release |
 | 0.1.0 | 2025-11-15 | Initial development |

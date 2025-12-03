@@ -1,17 +1,12 @@
-"""Ajax Systems API client via Jeedom Cloud Proxy.
+"""Ajax Systems API client via Jeedom Server.
 
-This module provides access to Ajax Systems devices through the Jeedom Market
-cloud proxy. This requires:
-1. A working Jeedom installation with the ajaxSystem plugin installed
-2. Valid Jeedom Market credentials
+This module provides access to Ajax Systems devices through a local or remote
+Jeedom server with the ajaxSystem plugin installed.
+
+Requirements:
+1. A working Jeedom installation with the ajaxSystem plugin
+2. Jeedom API key (from Configuration > API)
 3. Your Ajax Systems app credentials configured in Jeedom
-
-IMPORTANT: This proxy service is provided by Jeedom infrastructure and requires
-an active Jeedom installation. The cloud acts as a relay between Home Assistant
-and Ajax Systems API.
-
-Alternative: If you don't have Jeedom, use SIA DC-09 protocol for local 
-communication (events only, no control commands).
 
 CREDITS:
 - Based on Jeedom ajaxSystem plugin by Jeedom SAS
@@ -34,11 +29,8 @@ from ..const import API_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
-# Jeedom Cloud endpoints
-# NOTE: The actual URL comes from Jeedom's service::cloud::url config
-# Default is market.jeedom.com but could vary
-JEEDOM_CLOUD_URL = "https://market.jeedom.com"
-AJAX_SERVICE_PATH = "/service/ajaxSystem"
+# Default Jeedom API path for ajaxSystem plugin
+AJAX_SERVICE_PATH = "/core/api/jeeApi.php"
 
 
 class JeedomProxyError(Exception):
@@ -95,32 +87,45 @@ class AjaxDeviceData:
 
 
 class JeedomAjaxProxy:
-    """Ajax Systems API client via Jeedom Cloud proxy."""
+    """Ajax Systems API client via Jeedom Server."""
     
     def __init__(
         self,
-        jeedom_username: str,
-        jeedom_password: str,
-        ajax_username: str,
-        ajax_password: str,
+        jeedom_host: str,
+        jeedom_port: int = 80,
+        jeedom_use_ssl: bool = False,
+        jeedom_api_key: str = "",
+        ajax_username: str = "",
+        ajax_password: str = "",
         callback_url: Optional[str] = None,
         session: Optional[ClientSession] = None,
     ) -> None:
         """Initialize the Jeedom proxy client.
         
         Args:
-            jeedom_username: Jeedom Market email
-            jeedom_password: Jeedom Market password
+            jeedom_host: Jeedom server IP or hostname
+            jeedom_port: Jeedom server port (default 80)
+            jeedom_use_ssl: Use HTTPS instead of HTTP
+            jeedom_api_key: Jeedom API key
             ajax_username: Ajax Systems app email
             ajax_password: Ajax Systems app password
             callback_url: External URL for event callbacks (optional)
             session: aiohttp session (optional)
         """
-        self._jeedom_username = jeedom_username
-        self._jeedom_password = jeedom_password
+        self._jeedom_host = jeedom_host
+        self._jeedom_port = jeedom_port
+        self._jeedom_use_ssl = jeedom_use_ssl
+        self._jeedom_api_key = jeedom_api_key
         self._ajax_username = ajax_username
         self._ajax_password = ajax_password
         self._callback_url = callback_url
+        
+        # Build base URL
+        protocol = "https" if jeedom_use_ssl else "http"
+        if (jeedom_port == 80 and not jeedom_use_ssl) or (jeedom_port == 443 and jeedom_use_ssl):
+            self._base_url = f"{protocol}://{jeedom_host}"
+        else:
+            self._base_url = f"{protocol}://{jeedom_host}:{jeedom_port}"
         
         self._session = session
         self._own_session = session is None
@@ -136,10 +141,9 @@ class JeedomAjaxProxy:
         self._devices: dict[str, AjaxDeviceData] = {}
     
     def _get_auth_header(self) -> str:
-        """Generate Jeedom Market authorization header."""
-        # Jeedom uses SHA-512 of lowercase(username:password)
-        auth_string = f"{self._jeedom_username.lower()}:{self._jeedom_password}"
-        return hashlib.sha512(auth_string.encode()).hexdigest()
+        """Generate authorization header (not used for local Jeedom)."""
+        # For local Jeedom, we use API key instead
+        return ""
     
     async def _get_session(self) -> ClientSession:
         """Get or create aiohttp session."""
@@ -160,7 +164,7 @@ class JeedomAjaxProxy:
         data: Optional[dict] = None,
         method: str = "GET",
     ) -> dict[str, Any]:
-        """Make a request to Jeedom Cloud proxy.
+        """Make a request to Jeedom server.
         
         Args:
             path: API path (e.g., '/user/{userId}/hubs')
@@ -172,14 +176,20 @@ class JeedomAjaxProxy:
         """
         session = await self._get_session()
         
-        # Build URL
-        url = f"{JEEDOM_CLOUD_URL}{AJAX_SERVICE_PATH}"
+        # Build URL for Jeedom ajaxSystem plugin
+        url = f"{self._base_url}{AJAX_SERVICE_PATH}"
         
         # Replace {userId} placeholder
         if self._user_id:
             path = path.replace("{userId}", self._user_id)
         
-        params = {"path": path}
+        # Jeedom API parameters
+        params = {
+            "apikey": self._jeedom_api_key,
+            "plugin": "ajaxSystem",
+            "type": "ajax",
+            "path": path,
+        }
         
         # Add session token for authenticated requests
         if path not in ["/login", "/refresh"] and self._session_token:
@@ -191,10 +201,9 @@ class JeedomAjaxProxy:
         
         headers = {
             "Content-Type": "application/json",
-            "Authorization": self._get_auth_header(),
         }
         
-        _LOGGER.debug("Jeedom proxy request: %s %s", method, path)
+        _LOGGER.debug("Jeedom request: %s %s to %s", method, path, self._base_url)
         
         try:
             kwargs: dict[str, Any] = {
@@ -207,13 +216,13 @@ class JeedomAjaxProxy:
             
             async with session.request(method, url, **kwargs) as response:
                 text = await response.text()
-                _LOGGER.debug("Jeedom proxy response: %s", text[:500])
+                _LOGGER.debug("Jeedom response: %s", text[:500])
                 
                 if response.status == 401:
-                    raise JeedomAuthError("Invalid Jeedom Market credentials")
+                    raise JeedomAuthError("Invalid Jeedom API key")
                 
                 if response.status == 403:
-                    raise JeedomAuthError("Access denied - check Jeedom subscription")
+                    raise JeedomAuthError("Access denied - check API key permissions")
                 
                 if response.status != 200:
                     raise JeedomProxyError(f"HTTP {response.status}: {text}")
@@ -238,12 +247,12 @@ class JeedomAjaxProxy:
             raise JeedomProxyError(f"Invalid JSON response: {err}") from err
     
     async def authenticate(self) -> bool:
-        """Authenticate with Ajax Systems via Jeedom proxy.
+        """Authenticate with Ajax Systems via Jeedom server.
         
         Returns:
             True if authentication successful
         """
-        _LOGGER.info("Authenticating with Jeedom proxy for Ajax Systems")
+        _LOGGER.info("Authenticating with Jeedom server for Ajax Systems at %s", self._base_url)
         
         try:
             # Generate API key (could be random, but let's use a hash)

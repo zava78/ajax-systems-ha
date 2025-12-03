@@ -3,7 +3,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/release/zava78/ajax-systems-ha.svg)](https://github.com/zava78/ajax-systems-ha/releases)
 [![License](https://img.shields.io/github/license/zava78/ajax-systems-ha.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/zava78/ajax-systems-ha)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/zava78/ajax-systems-ha)
 
 Custom Home Assistant integration for **Ajax Systems** security alarms.
 
@@ -16,14 +16,13 @@ This is an **unofficial** integration. Ajax Systems does not provide a public AP
 | Method | Status | Description |
 |--------|--------|-------------|
 | **SIA DC-09 Protocol** | ✅ **Recommended** | Standard security protocol, local communication |
-| **Jeedom Cloud Proxy** | ✅ **Full Control** | Uses Jeedom Market as proxy, arm/disarm support |
+| **Jeedom MQTT** | ✅ **Recommended** | Subscribe to Jeedom MQTT events |
+| **Jeedom Server** | ✅ **Full Control** | Connect to local/remote Jeedom with ajaxSystem plugin |
 | **MQTT Bridge** | ✅ Works | Via Jeedom plugin |
 | **MQTT Publish** | ✅ New | Publish state changes to local MQTT broker |
-| **Cloud API** | ❌ **Not Available** | Was closed in 2018 |
-| **Enterprise API** | ❌ Partners Only | Requires commercial partnership |
 
 **Note:** The [SIA integration](https://www.home-assistant.io/integrations/sia/) in Home Assistant already supports Ajax Systems for events. This custom integration adds:
-- Full arm/disarm control via Jeedom proxy
+- Full arm/disarm control via Jeedom server
 - Device-specific entities
 - Enhanced status information
 - MQTT state publishing
@@ -131,31 +130,24 @@ In the Ajax app, go to Hub Settings → Monitoring Stations:
 
 ---
 
-### Jeedom Cloud Proxy (Full Control) ⚠️ REQUIRES JEEDOM
+### Jeedom Server (Full Control) ⚠️ REQUIRES JEEDOM
 
-This method provides **FULL CONTROL** of your Ajax system including arm/disarm. It uses the Jeedom cloud infrastructure as a proxy to access the Ajax API.
+This method provides **FULL CONTROL** of your Ajax system including arm/disarm. It connects to a local or remote Jeedom server running the ajaxSystem plugin.
 
-> ⚠️ **IMPORTANT:** This option requires an active **Jeedom installation** with the **ajaxSystem plugin** installed and configured. The Jeedom cloud service acts as a relay between your Home Assistant and the Ajax API. **Without Jeedom, this option will NOT work.**
+> ⚠️ **IMPORTANT:** This option requires an active **Jeedom installation** with the **ajaxSystem plugin** installed and configured. **Without Jeedom, this option will NOT work.**
 >
 > **If you don't have Jeedom**, use the **SIA Protocol** option instead for local events (no arm/disarm control).
 
 #### Requirements
 
-1. **Jeedom Server** - A working Jeedom installation (box or DIY)
+1. **Jeedom Server** - A working Jeedom installation (local or remote)
 2. **ajaxSystem Plugin** - Installed from Jeedom Market (free plugin)
-3. **Jeedom Market Account** - For plugin installation
+3. **Jeedom API Key** - From Jeedom Configuration > API
 4. **Ajax App Credentials** - Configured in the ajaxSystem plugin
 
-#### 🔑 Credentials Setup
+#### 🔑 Setup Steps
 
-##### 1. Jeedom Market Account
-
-1. Go to [market.jeedom.com](https://market.jeedom.com)
-2. Click **"Register"** (S'inscrire) in the top right
-3. Fill in the registration form
-4. Confirm your email
-
-##### 2. Install ajaxSystem Plugin on Jeedom
+##### 1. Install ajaxSystem Plugin on Jeedom
 
 1. In Jeedom, go to **Plugins** → **Plugin Management** → **Market**
 2. Search for "ajaxSystem"
@@ -163,26 +155,34 @@ This method provides **FULL CONTROL** of your Ajax system including arm/disarm. 
 4. Configure with your Ajax app credentials
 5. Sync your devices
 
+##### 2. Get Jeedom API Key
+
+1. In Jeedom, go to **Settings** → **System** → **Configuration**
+2. Click on **API** tab
+3. Copy the API key (or generate one if needed)
+
 ##### 3. Ajax Systems App Credentials
 
 These are the same credentials you use in the official Ajax app:
 - Email address used to register in Ajax app
 - Password for your Ajax account
 
-#### Configuration Steps
+#### Configuration in Home Assistant
 
 1. Go to **Settings** → **Devices & Services** → **Add Integration**
 2. Search for "Ajax Systems"
-3. Select **"🔌 Jeedom Cloud Proxy (Full Control)"**
-4. Enter credentials:
-   - **Jeedom Market Email**: Your market.jeedom.com email
-   - **Jeedom Market Password**: Your market.jeedom.com password
+3. Select **"🔌 Jeedom Server (Full Control)"**
+4. Enter configuration:
+   - **Jeedom Server Address**: IP or hostname (e.g., `192.168.1.100` or `jeedom.local`)
+   - **Jeedom Port**: Usually 80 (HTTP) or 443 (HTTPS)
+   - **Use HTTPS**: Enable for secure connection
+   - **Jeedom API Key**: Key from Jeedom Configuration > API
    - **Ajax App Email**: Your Ajax app email
    - **Ajax App Password**: Your Ajax app password
 5. Configure Hub ID and optional SIA settings
 6. Click **Submit**
 
-#### Features with Jeedom Proxy
+#### Features with Jeedom Server
 
 - ✅ Full arm/disarm control
 - ✅ Night mode support
@@ -244,16 +244,6 @@ ajax/{hub_id}/events/alarm    # Real-time SIA events
 
 - Home Assistant MQTT integration must be installed and configured
 - MQTT broker (Mosquitto, etc.) must be running
-
----
-
-### About Cloud API
-
-⚠️ **The Ajax Cloud API was closed in 2018** and is no longer functional. The Enterprise API exists but is only available to commercial partners serving thousands of systems.
-
-For home users:
-- Use **Jeedom Cloud Proxy** for full control (requires free Jeedom Market account)
-- Use **SIA DC-09** for local-only operation (events only, no control)
 
 ---
 
@@ -354,15 +344,12 @@ automation:
 3. Check Home Assistant logs for connection attempts
 4. Verify Account Code matches between Hub and integration
 
-### Jeedom Proxy authentication fails
+### Jeedom Server authentication fails
 
-1. Verify your Jeedom Market credentials at [market.jeedom.com](https://market.jeedom.com)
-2. Check that your Ajax app credentials work in the official app
-3. Ensure you're using email (not username) for both services
-
-### Cloud API authentication fails
-
-The Ajax Cloud API was closed in 2018 and no longer works. Use SIA or Jeedom Proxy instead.
+1. Verify your Jeedom server is reachable from Home Assistant
+2. Check that the API key is correct (Jeedom Configuration > API)
+3. Ensure the ajaxSystem plugin is installed and configured
+4. Check that your Ajax app credentials work in the official app
 
 ### Devices not showing
 
@@ -379,6 +366,18 @@ The Ajax Cloud API was closed in 2018 and no longer works. Use SIA or Jeedom Pro
 ---
 
 ## Changelog
+
+### v1.2.0 (2025-12-03)
+- 📡 **Jeedom MQTT subscription** - Receive sensor states from Jeedom via MQTT with French translation
+- 🗑️ **Removed Cloud API** - Non-functional since 2018
+- 🗑️ **Removed Enterprise API references** - Only available to commercial partners
+- 🌐 French to Italian/English translation for sensor names and states
+
+### v1.1.0 (2025-12-02)
+- 🔧 **Jeedom local/remote server support** - Connect directly to Jeedom server with IP/DNS and port
+- 🔧 Replaced Jeedom Market cloud proxy with direct server connection
+- 🔧 Added SSL/HTTPS support for Jeedom connection
+- 🔧 Added API key authentication for Jeedom
 
 ### v1.0.0 (2025-12-02)
 - 🎉 **Initial stable release**

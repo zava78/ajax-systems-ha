@@ -8,7 +8,7 @@
           "integration_type": "Tipo di Integrazione"
         },
         "data_description": {
-          "integration_type": "SIA: Ricevi eventi tramite protocollo SIA DC-09 (consigliato)\nCloud: Controllo completo tramite API Ajax (sperimentale)\nMQTT: Usa Jeedom bridge come fallback"
+          "integration_type": "SIA: Ricevi eventi tramite protocollo SIA DC-09\nJeedom MQTT: Ricevi stati sensori da Jeedom (consigliato)\nJeedom Server: Controllo completo tramite API Jeedom\nMQTT: Bridge Jeedom legacy"
         }
       },
       "sia": {
@@ -35,26 +35,32 @@
           "mqtt_discovery_enabled": "Crea configurazione MQTT discovery per altri sistemi"
         }
       },
-      "cloud": {
-        "title": "⚠️ API Ajax Cloud - NON FUNZIONANTE",
-        "description": "ATTENZIONE: L'API Cloud di Ajax è stata CHIUSA nel 2018 e non funziona più per gli utenti domestici. L'API Enterprise è disponibile solo per partner commerciali. Usa il Protocollo SIA per un'integrazione funzionante.",
+      "jeedom_mqtt": {
+        "title": "Configurazione Jeedom MQTT",
+        "description": "Sottoscrivi gli eventi MQTT di Jeedom per ricevere gli stati dei sensori Ajax. Richiede Jeedom con il plugin ajaxSystem che pubblica su MQTT.",
         "data": {
-          "username": "Email",
-          "password": "Password",
+          "jeedom_mqtt_topic": "Topic MQTT",
+          "jeedom_mqtt_language": "Lingua Traduzione",
           "hub_id": "ID Hub",
-          "try_anyway": "Prova comunque (probabilmente fallirà)",
           "use_sia": "Abilita anche ricevitore SIA",
           "sia_port": "Porta SIA",
-          "sia_account": "Codice Account"
+          "sia_account": "Codice Account",
+          "mqtt_publish_enabled": "Pubblica stati su MQTT",
+          "mqtt_publish_prefix": "Prefisso Topic MQTT",
+          "mqtt_publish_attributes": "Includi attributi in MQTT",
+          "mqtt_discovery_enabled": "Abilita MQTT Discovery"
         },
         "data_description": {
-          "username": "Indirizzo email dell'app Ajax",
-          "password": "Password dell'app Ajax",
+          "jeedom_mqtt_topic": "Topic MQTT dove Jeedom pubblica gli eventi Ajax (default: jeedom/cms/event)",
+          "jeedom_mqtt_language": "Lingua in cui tradurre i nomi dei sensori dal francese",
           "hub_id": "Identificativo univoco per il tuo hub",
-          "try_anyway": "Tenta la connessione anche se non ci si aspetta che funzioni",
-          "use_sia": "Abilita ricevitore SIA per aggiornamenti più veloci (consigliato)",
-          "sia_port": "Porta per ricevere eventi SIA",
-          "sia_account": "Codice account configurato nel tuo Ajax Hub"
+          "use_sia": "Abilita ricevitore SIA per ulteriori tipi di eventi",
+          "sia_port": "Porta per ricevere eventi SIA (default: 2410)",
+          "sia_account": "Codice account configurato nel tuo Ajax Hub",
+          "mqtt_publish_enabled": "Pubblica le variazioni di stato delle entità sul broker MQTT locale",
+          "mqtt_publish_prefix": "Prefisso per i topic MQTT (es. ajax)",
+          "mqtt_publish_attributes": "Includi gli attributi delle entità nei messaggi MQTT",
+          "mqtt_discovery_enabled": "Crea configurazione MQTT discovery per altri sistemi"
         }
       },
       "mqtt": {
@@ -74,11 +80,13 @@
         }
       },
       "jeedom": {
-        "title": "Configurazione Proxy Jeedom Cloud",
-        "description": "Usa il cloud Jeedom Market come proxy per controllare il tuo sistema Ajax. Fornisce CONTROLLO COMPLETO incluso arm/disarm. Richiede un account Jeedom Market.",
+        "title": "Configurazione Server Jeedom",
+        "description": "Connetti a un server Jeedom locale o remoto con il plugin ajaxSystem installato. Fornisce CONTROLLO COMPLETO incluso arm/disarm.",
         "data": {
-          "jeedom_username": "Email Jeedom Market",
-          "jeedom_password": "Password Jeedom Market",
+          "jeedom_host": "Indirizzo Server Jeedom",
+          "jeedom_port": "Porta Jeedom",
+          "jeedom_use_ssl": "Usa HTTPS",
+          "jeedom_api_key": "Chiave API Jeedom",
           "ajax_username": "Email App Ajax",
           "ajax_password": "Password App Ajax",
           "hub_id": "ID Hub",
@@ -91,8 +99,10 @@
           "mqtt_discovery_enabled": "Abilita MQTT Discovery"
         },
         "data_description": {
-          "jeedom_username": "La tua email Jeedom Market (market.jeedom.com)",
-          "jeedom_password": "La tua password Jeedom Market",
+          "jeedom_host": "Indirizzo IP o hostname del server Jeedom (es. 192.168.1.100 o jeedom.local)",
+          "jeedom_port": "Numero porta (default 80 per HTTP, 443 per HTTPS)",
+          "jeedom_use_ssl": "Abilita connessione HTTPS (consigliato per accesso remoto)",
+          "jeedom_api_key": "Chiave API da Jeedom Configurazione > API",
           "ajax_username": "La tua email dell'app Ajax Systems",
           "ajax_password": "La tua password dell'app Ajax Systems",
           "hub_id": "Identificativo univoco per il tuo hub",
@@ -109,9 +119,9 @@
     "error": {
       "cloud_api_closed": "L'API Cloud di Ajax è stata chiusa nel 2018 e non funziona più. Usa il Protocollo SIA.",
       "invalid_auth": "Username o password non validi. Controlla le credenziali dell'app Ajax.",
-      "invalid_jeedom_auth": "Credenziali Jeedom Market non valide. Controlla il tuo login su market.jeedom.com.",
-      "jeedom_service_unavailable": "Servizio proxy Ajax di Jeedom non disponibile (404). Questa funzione richiede un'installazione Jeedom con il plugin ajaxSystem. Usa il Protocollo SIA per operare solo in locale.",
-      "jeedom_proxy_error": "Errore di connessione al proxy Jeedom. Assicurati che il tuo server Jeedom sia online con il plugin ajaxSystem installato e configurato.",
+      "invalid_jeedom_auth": "Chiave API Jeedom o credenziali Ajax non valide. Controlla la configurazione.",
+      "jeedom_service_unavailable": "Plugin ajaxSystem non trovato. Assicurati che il plugin sia installato e configurato sul tuo server Jeedom.",
+      "jeedom_proxy_error": "Errore di connessione al server Jeedom. Verifica che indirizzo, porta e chiave API siano corretti.",
       "no_hubs": "Nessun hub Ajax trovato. Controlla le credenziali dell'app Ajax.",
       "cannot_connect": "Impossibile connettersi. Verifica la connessione internet.",
       "auth_failed": "Autenticazione fallita. Controlla le tue credenziali.",

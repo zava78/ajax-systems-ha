@@ -8,7 +8,6 @@ MANUFACTURER: Final = "Ajax Systems"
 # Configuration keys
 CONF_ACCOUNT_ID: Final = "account_id"
 CONF_HUB_ID: Final = "hub_id"
-CONF_USE_CLOUD: Final = "use_cloud"
 CONF_USE_SIA: Final = "use_sia"
 CONF_SIA_PORT: Final = "sia_port"
 CONF_SIA_ACCOUNT: Final = "sia_account"
@@ -19,6 +18,10 @@ CONF_SIA_ENCRYPTION_KEY: Final = "sia_encryption_key"
 
 # Jeedom Proxy configuration
 CONF_USE_JEEDOM_PROXY: Final = "use_jeedom_proxy"
+CONF_JEEDOM_HOST: Final = "jeedom_host"
+CONF_JEEDOM_PORT: Final = "jeedom_port"
+CONF_JEEDOM_USE_SSL: Final = "jeedom_use_ssl"
+CONF_JEEDOM_API_KEY: Final = "jeedom_api_key"
 CONF_JEEDOM_USERNAME: Final = "jeedom_username"
 CONF_JEEDOM_PASSWORD: Final = "jeedom_password"
 CONF_AJAX_USERNAME: Final = "ajax_username"
@@ -31,15 +34,19 @@ CONF_MQTT_PUBLISH_ATTRIBUTES: Final = "mqtt_publish_attributes"
 CONF_MQTT_PUBLISH_RETAIN: Final = "mqtt_publish_retain"
 CONF_MQTT_DISCOVERY_ENABLED: Final = "mqtt_discovery_enabled"
 
+# Jeedom MQTT Subscribe configuration (receive events from Jeedom)
+CONF_JEEDOM_MQTT_ENABLED: Final = "jeedom_mqtt_enabled"
+CONF_JEEDOM_MQTT_TOPIC: Final = "jeedom_mqtt_topic"
+CONF_JEEDOM_MQTT_LANGUAGE: Final = "jeedom_mqtt_language"
+
 # Default values
 DEFAULT_SIA_PORT: Final = 2410
+DEFAULT_JEEDOM_PORT: Final = 80
+DEFAULT_JEEDOM_PORT_SSL: Final = 443
 DEFAULT_MQTT_TOPIC_PREFIX: Final = "jeedom/cmd"
 DEFAULT_MQTT_PREFIX: Final = "jeedom/cmd"
 DEFAULT_MQTT_PUBLISH_PREFIX: Final = "ajax"
-
-# API endpoints (reverse engineered from Jeedom plugin analysis)
-AJAX_CLOUD_BASE_URL: Final = "https://app.ajax.systems"
-AJAX_API_VERSION: Final = "v1"
+DEFAULT_JEEDOM_MQTT_TOPIC: Final = "jeedom/cms/event"
 
 # Timeouts
 API_TIMEOUT: Final = 30

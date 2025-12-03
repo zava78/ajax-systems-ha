@@ -21,7 +21,6 @@ def mock_config_entry():
     entry.entry_id = "test_entry_id"
     entry.data = {
         "use_sia": True,
-        "use_cloud": False,
         "use_mqtt": False,
         "hub_id": "test_hub",
         "sia_port": 2410,
@@ -32,9 +31,9 @@ def mock_config_entry():
 
 
 @pytest.fixture
-def mock_api():
-    """Create a mock Ajax Cloud API."""
-    with patch("custom_components.ajax_systems.api.AjaxCloudApi") as mock:
+def mock_jeedom_proxy():
+    """Create a mock Jeedom Proxy API."""
+    with patch("custom_components.ajax_systems.api.JeedomAjaxProxy") as mock:
         api = AsyncMock()
         api.authenticate = AsyncMock(return_value=True)
         api.get_hubs = AsyncMock(return_value=[])

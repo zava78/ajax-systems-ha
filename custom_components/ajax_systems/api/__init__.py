@@ -1,9 +1,14 @@
 """API clients for Ajax Systems integration."""
-from .ajax_cloud import AjaxCloudApi, AjaxApiError, AjaxAuthError, AjaxConnectionError
+from .jeedom_proxy import (
+    JeedomAjaxProxy,
+    JeedomProxyError,
+    JeedomAuthError,
+    JeedomConnectionError,
+)
 
 __all__ = [
-    "AjaxCloudApi",
-    "AjaxApiError",
-    "AjaxAuthError", 
-    "AjaxConnectionError",
+    "JeedomAjaxProxy",
+    "JeedomProxyError",
+    "JeedomAuthError",
+    "JeedomConnectionError",
 ]

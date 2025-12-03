@@ -7,7 +7,6 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import (
@@ -27,20 +26,27 @@ from .const import (
     CONF_MQTT_PUBLISH_ATTRIBUTES,
     CONF_MQTT_PUBLISH_RETAIN,
     CONF_MQTT_DISCOVERY_ENABLED,
+    CONF_JEEDOM_MQTT_ENABLED,
+    CONF_JEEDOM_MQTT_TOPIC,
+    CONF_JEEDOM_MQTT_LANGUAGE,
     CONF_SIA_ACCOUNT,
     CONF_SIA_ENCRYPTION_KEY,
     CONF_SIA_PORT,
-    CONF_USE_CLOUD,
     CONF_USE_MQTT,
     CONF_USE_SIA,
     CONF_USE_JEEDOM_PROXY,
-    CONF_JEEDOM_USERNAME,
-    CONF_JEEDOM_PASSWORD,
+    CONF_JEEDOM_HOST,
+    CONF_JEEDOM_PORT,
+    CONF_JEEDOM_USE_SSL,
+    CONF_JEEDOM_API_KEY,
     CONF_AJAX_USERNAME,
     CONF_AJAX_PASSWORD,
     DEFAULT_MQTT_PREFIX,
     DEFAULT_MQTT_PUBLISH_PREFIX,
     DEFAULT_SIA_PORT,
+    DEFAULT_JEEDOM_PORT,
+    DEFAULT_JEEDOM_PORT_SSL,
+    DEFAULT_JEEDOM_MQTT_TOPIC,
     DOMAIN,
 )
 
@@ -68,8 +74,8 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             
             if self._integration_type == "sia":
                 return await self.async_step_sia()
-            elif self._integration_type == "cloud":
-                return await self.async_step_cloud()
+            elif self._integration_type == "jeedom_mqtt":
+                return await self.async_step_jeedom_mqtt()
             elif self._integration_type == "jeedom":
                 return await self.async_step_jeedom()
             elif self._integration_type == "mqtt":
@@ -80,16 +86,16 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required("integration_type", default="sia"): vol.In({
                     "sia": "SIA Protocol (Recommended - Local)",
-                    "jeedom": "🔌 Jeedom Cloud Proxy (Full Control)",
-                    "cloud": "⚠️ Ajax Cloud API (NOT WORKING)",
-                    "mqtt": "MQTT Bridge (Jeedom)",
+                    "jeedom_mqtt": "📡 Jeedom MQTT (Recommended)",
+                    "jeedom": "🔌 Jeedom Server API (Full Control)",
+                    "mqtt": "MQTT Bridge (Legacy)",
                 }),
             }),
             errors=errors,
             description_placeholders={
                 "sia_description": "Receive alarm events via SIA DC-09 protocol",
-                "jeedom_description": "Full control via Jeedom Market account",
-                "cloud_description": "The Cloud API was closed by Ajax in 2018",
+                "jeedom_mqtt_description": "Receive sensor states from Jeedom via MQTT",
+                "jeedom_description": "Full control via local/remote Jeedom server",
                 "mqtt_description": "Use Jeedom MQTT bridge as fallback",
             },
         )
@@ -103,7 +109,6 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._data = {
                 CONF_USE_SIA: True,
-                CONF_USE_CLOUD: False,
                 CONF_USE_MQTT: False,
                 CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
                 CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
@@ -154,104 +159,86 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
     
-    async def async_step_cloud(
+    async def async_step_jeedom_mqtt(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Configure Ajax Cloud API - NOT WORKING (closed in 2018)."""
+        """Configure Jeedom MQTT subscription."""
         errors: dict[str, str] = {}
         
         if user_input is not None:
-            # Show warning that Cloud API doesn't work
-            errors["base"] = "cloud_api_closed"
+            mqtt_topic = user_input.get(CONF_JEEDOM_MQTT_TOPIC, DEFAULT_JEEDOM_MQTT_TOPIC)
+            language = user_input.get(CONF_JEEDOM_MQTT_LANGUAGE, "it")
             
-            # If user insists, try anyway (will fail)
-            if user_input.get("try_anyway"):
-                username = user_input.get(CONF_USERNAME, "")
-                password = user_input.get(CONF_PASSWORD, "")
-                
-                try:
-                    from .api.ajax_cloud import AjaxCloudApi, AjaxAuthError, AjaxConnectionError
-                    
-                    api = AjaxCloudApi(username, password)
-                    try:
-                        await api.authenticate()
-                        hubs = await api.get_hubs()
-                        if not hubs:
-                            errors["base"] = "cloud_api_closed"
-                        else:
-                            _LOGGER.info("Cloud API: Found %d hubs", len(hubs))
-                    except AjaxAuthError as err:
-                        _LOGGER.error("Cloud API authentication failed: %s", err)
-                        errors["base"] = "cloud_api_closed"
-                    except AjaxConnectionError as err:
-                        _LOGGER.error("Cloud API connection error: %s", err)
-                        errors["base"] = "cannot_connect"
-                    except Exception as err:
-                        _LOGGER.error("Cloud API unexpected error: %s", err)
-                        errors["base"] = "cloud_api_closed"
-                    finally:
-                        await api.close()
-                        
-                except ImportError as err:
-                    _LOGGER.error("Failed to import API client: %s", err)
-                    errors["base"] = "unknown"
-                
-                if not errors:
-                    self._data = {
-                        CONF_USE_SIA: user_input.get(CONF_USE_SIA, True),
-                        CONF_USE_CLOUD: True,
-                        CONF_USE_MQTT: False,
-                        CONF_USERNAME: username,
-                        CONF_PASSWORD: password,
-                        CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
-                        CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
-                        CONF_SIA_ACCOUNT: user_input.get(CONF_SIA_ACCOUNT, "AAA"),
-                    }
-                    
-                    await self.async_set_unique_id(f"ajax_cloud_{username}")
-                    self._abort_if_unique_id_configured()
-                    
-                    return self.async_create_entry(
-                        title=f"Ajax Cloud ({username})",
-                        data=self._data,
-                    )
+            self._data = {
+                CONF_USE_SIA: user_input.get(CONF_USE_SIA, False),
+                CONF_USE_MQTT: False,
+                CONF_JEEDOM_MQTT_ENABLED: True,
+                CONF_JEEDOM_MQTT_TOPIC: mqtt_topic,
+                CONF_JEEDOM_MQTT_LANGUAGE: language,
+                CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
+                CONF_SIA_PORT: user_input.get(CONF_SIA_PORT, DEFAULT_SIA_PORT),
+                CONF_SIA_ACCOUNT: user_input.get(CONF_SIA_ACCOUNT, "AAA"),
+                # MQTT Publish options
+                CONF_MQTT_PUBLISH_ENABLED: user_input.get(CONF_MQTT_PUBLISH_ENABLED, False),
+                CONF_MQTT_PUBLISH_PREFIX: user_input.get(CONF_MQTT_PUBLISH_PREFIX, DEFAULT_MQTT_PUBLISH_PREFIX),
+                CONF_MQTT_PUBLISH_ATTRIBUTES: user_input.get(CONF_MQTT_PUBLISH_ATTRIBUTES, True),
+                CONF_MQTT_DISCOVERY_ENABLED: user_input.get(CONF_MQTT_DISCOVERY_ENABLED, False),
+            }
+            
+            # Check for existing entry
+            await self.async_set_unique_id(f"ajax_jeedom_mqtt_{mqtt_topic.replace('/', '_')}")
+            self._abort_if_unique_id_configured()
+            
+            return self.async_create_entry(
+                title=f"Ajax Jeedom MQTT ({mqtt_topic})",
+                data=self._data,
+            )
         
         return self.async_show_form(
-            step_id="cloud",
+            step_id="jeedom_mqtt",
             data_schema=vol.Schema({
-                vol.Required(CONF_USERNAME): TextSelector(
-                    TextSelectorConfig(type=TextSelectorType.EMAIL)
+                vol.Required(CONF_JEEDOM_MQTT_TOPIC, default=DEFAULT_JEEDOM_MQTT_TOPIC): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
                 ),
-                vol.Required(CONF_PASSWORD): TextSelector(
-                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
-                ),
+                vol.Required(CONF_JEEDOM_MQTT_LANGUAGE, default="it"): vol.In({
+                    "it": "Italiano",
+                    "en": "English",
+                }),
                 vol.Required(CONF_HUB_ID, default="ajax_hub"): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.TEXT)
                 ),
-                vol.Optional("try_anyway", default=False): BooleanSelector(),
-                vol.Optional(CONF_USE_SIA, default=True): BooleanSelector(),
+                vol.Optional(CONF_USE_SIA, default=False): BooleanSelector(),
                 vol.Optional(CONF_SIA_PORT, default=DEFAULT_SIA_PORT): NumberSelector(
                     NumberSelectorConfig(min=1, max=65535, step=1, mode="box")
                 ),
                 vol.Optional(CONF_SIA_ACCOUNT, default="AAA"): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.TEXT)
                 ),
+                # MQTT Publish options
+                vol.Optional(CONF_MQTT_PUBLISH_ENABLED, default=False): BooleanSelector(),
+                vol.Optional(CONF_MQTT_PUBLISH_PREFIX, default=DEFAULT_MQTT_PUBLISH_PREFIX): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
+                vol.Optional(CONF_MQTT_PUBLISH_ATTRIBUTES, default=True): BooleanSelector(),
+                vol.Optional(CONF_MQTT_DISCOVERY_ENABLED, default=False): BooleanSelector(),
             }),
             errors=errors,
             description_placeholders={
-                "api_note": "⚠️ WARNING: The Ajax Cloud API was CLOSED in 2018 and no longer works. Use SIA Protocol instead. The Enterprise API is only available to commercial partners.",
+                "jeedom_mqtt_note": "Subscribe to Jeedom MQTT events to receive Ajax sensor states. Requires Jeedom with ajaxSystem plugin publishing to MQTT.",
             },
         )
     
     async def async_step_jeedom(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Configure Jeedom Cloud Proxy."""
+        """Configure Jeedom Server Connection."""
         errors: dict[str, str] = {}
         
         if user_input is not None:
-            jeedom_username = user_input.get(CONF_JEEDOM_USERNAME, "")
-            jeedom_password = user_input.get(CONF_JEEDOM_PASSWORD, "")
+            jeedom_host = user_input.get(CONF_JEEDOM_HOST, "")
+            jeedom_port = user_input.get(CONF_JEEDOM_PORT, DEFAULT_JEEDOM_PORT)
+            jeedom_use_ssl = user_input.get(CONF_JEEDOM_USE_SSL, False)
+            jeedom_api_key = user_input.get(CONF_JEEDOM_API_KEY, "")
             ajax_username = user_input.get(CONF_AJAX_USERNAME, "")
             ajax_password = user_input.get(CONF_AJAX_PASSWORD, "")
             
@@ -264,8 +251,10 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
                 
                 proxy = JeedomAjaxProxy(
-                    jeedom_username=jeedom_username,
-                    jeedom_password=jeedom_password,
+                    jeedom_host=jeedom_host,
+                    jeedom_port=jeedom_port,
+                    jeedom_use_ssl=jeedom_use_ssl,
+                    jeedom_api_key=jeedom_api_key,
                     ajax_username=ajax_username,
                     ajax_password=ajax_password,
                 )
@@ -304,11 +293,12 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             if not errors:
                 self._data = {
                     CONF_USE_SIA: user_input.get(CONF_USE_SIA, True),
-                    CONF_USE_CLOUD: False,
                     CONF_USE_MQTT: False,
                     CONF_USE_JEEDOM_PROXY: True,
-                    CONF_JEEDOM_USERNAME: jeedom_username,
-                    CONF_JEEDOM_PASSWORD: jeedom_password,
+                    CONF_JEEDOM_HOST: jeedom_host,
+                    CONF_JEEDOM_PORT: jeedom_port,
+                    CONF_JEEDOM_USE_SSL: jeedom_use_ssl,
+                    CONF_JEEDOM_API_KEY: jeedom_api_key,
                     CONF_AJAX_USERNAME: ajax_username,
                     CONF_AJAX_PASSWORD: ajax_password,
                     CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
@@ -321,21 +311,25 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_MQTT_DISCOVERY_ENABLED: user_input.get(CONF_MQTT_DISCOVERY_ENABLED, False),
                 }
                 
-                await self.async_set_unique_id(f"ajax_jeedom_{ajax_username}")
+                await self.async_set_unique_id(f"ajax_jeedom_{jeedom_host}_{ajax_username}")
                 self._abort_if_unique_id_configured()
                 
                 return self.async_create_entry(
-                    title=f"Ajax via Jeedom ({ajax_username})",
+                    title=f"Ajax via Jeedom ({jeedom_host})",
                     data=self._data,
                 )
         
         return self.async_show_form(
             step_id="jeedom",
             data_schema=vol.Schema({
-                vol.Required(CONF_JEEDOM_USERNAME): TextSelector(
-                    TextSelectorConfig(type=TextSelectorType.EMAIL)
+                vol.Required(CONF_JEEDOM_HOST, default=""): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
                 ),
-                vol.Required(CONF_JEEDOM_PASSWORD): TextSelector(
+                vol.Required(CONF_JEEDOM_PORT, default=DEFAULT_JEEDOM_PORT): NumberSelector(
+                    NumberSelectorConfig(min=1, max=65535, step=1, mode="box")
+                ),
+                vol.Optional(CONF_JEEDOM_USE_SSL, default=False): BooleanSelector(),
+                vol.Required(CONF_JEEDOM_API_KEY): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 ),
                 vol.Required(CONF_AJAX_USERNAME): TextSelector(
@@ -364,7 +358,7 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
             }),
             errors=errors,
             description_placeholders={
-                "jeedom_note": "Requires a Jeedom Market account (market.jeedom.com). This uses the Jeedom cloud as a proxy to control your Ajax system.",
+                "jeedom_note": "Requires a local or remote Jeedom server with the ajaxSystem plugin installed. Enter the Jeedom server IP/hostname, port, and API key.",
             },
         )
     
@@ -377,7 +371,6 @@ class AjaxSystemsConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._data = {
                 CONF_USE_SIA: user_input.get(CONF_USE_SIA, False),
-                CONF_USE_CLOUD: False,
                 CONF_USE_MQTT: True,
                 CONF_HUB_ID: user_input.get(CONF_HUB_ID, "ajax_hub"),
                 CONF_MQTT_PREFIX: user_input.get(CONF_MQTT_PREFIX, DEFAULT_MQTT_PREFIX),
