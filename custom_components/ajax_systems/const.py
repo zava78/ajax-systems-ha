@@ -46,7 +46,7 @@ DEFAULT_JEEDOM_PORT_SSL: Final = 443
 DEFAULT_MQTT_TOPIC_PREFIX: Final = "jeedom/cmd"
 DEFAULT_MQTT_PREFIX: Final = "jeedom/cmd"
 DEFAULT_MQTT_PUBLISH_PREFIX: Final = "ajax"
-DEFAULT_JEEDOM_MQTT_TOPIC: Final = "jeedom/cms/event"
+DEFAULT_JEEDOM_MQTT_TOPIC: Final = "jeedom/cmd/event"
 
 # Timeouts
 API_TIMEOUT: Final = 30

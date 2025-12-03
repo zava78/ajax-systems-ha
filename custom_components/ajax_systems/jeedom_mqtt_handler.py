@@ -32,7 +32,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 # Default Jeedom MQTT topic for Ajax events
-DEFAULT_JEEDOM_MQTT_TOPIC = "jeedom/cms/event"
+DEFAULT_JEEDOM_MQTT_TOPIC = "jeedom/cmd/event"
 
 # Signal for entity updates
 SIGNAL_JEEDOM_UPDATE = f"{DOMAIN}_jeedom_update"

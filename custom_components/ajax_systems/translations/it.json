@@ -15,7 +15,7 @@
         },
         "data_description": {
           "hub_id": "Identificativo univoco per il tuo hub",
-          "jeedom_mqtt_topic": "Topic MQTT dove Jeedom pubblica gli eventi Ajax (default: jeedom/cms/event)",
+          "jeedom_mqtt_topic": "Topic MQTT dove Jeedom pubblica gli eventi Ajax (default: jeedom/cmd/event)",
           "jeedom_mqtt_language": "Lingua in cui tradurre i nomi dei sensori dal francese",
           "use_sia": "Abilita ricevitore SIA DC-09 per ulteriori eventi allarme in tempo reale",
           "sia_port": "Porta per ricevere eventi SIA (default: 2410)",
