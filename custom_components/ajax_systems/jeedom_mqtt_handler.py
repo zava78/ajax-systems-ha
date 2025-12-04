@@ -14,6 +14,11 @@ Payload: {
   "subtype": "binary|numeric|string"
 }
 
+Jeedom also supports requesting current state:
+Topic: jeedom/cmd/get/{command_id}
+Payload: {} or {"request": true}
+Response comes on: jeedom/cmd/event/{command_id}
+
 Each Ajax device has multiple commands:
 - Trafiqué (Tamper) - binary 0/1
 - En ligne (Online) - binary 0/1  
@@ -25,6 +30,7 @@ Each Ajax device has multiple commands:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -42,6 +48,12 @@ _LOGGER = logging.getLogger(__name__)
 
 # Default Jeedom MQTT topic for Ajax events
 DEFAULT_JEEDOM_MQTT_TOPIC = "jeedom/cmd/event"
+
+# Topic for requesting state refresh from Jeedom
+JEEDOM_CMD_GET_TOPIC = "jeedom/cmd/get"
+
+# Topic for Jeedom equipment info (to discover all Ajax devices)
+JEEDOM_EQLOGIC_TOPIC = "jeedom/eqLogic"
 
 # Signal for entity updates
 SIGNAL_JEEDOM_UPDATE = f"{DOMAIN}_jeedom_update"
@@ -469,11 +481,96 @@ class JeedomMqttHandler:
                 subscribe_topic,
                 self._language,
             )
+            
+            # Request initial state from Jeedom
+            await self._request_initial_state()
+            
             return True
             
         except Exception as err:
             _LOGGER.error("Failed to subscribe: %s", err)
             return False
+    
+    async def _request_initial_state(self) -> None:
+        """Request Jeedom to publish current state of all Ajax devices.
+        
+        Jeedom's MQTT plugin supports several ways to request state:
+        1. Publish to jeedom/cmd/get/{id} to request specific command
+        2. Publish to jeedom/eqLogic/get to request equipment list
+        3. Use retained messages (if configured in Jeedom)
+        
+        We'll request a refresh by publishing to a special topic.
+        """
+        try:
+            # Method 1: Request all equipment status
+            # Jeedom's jeedomConnect or MQTT plugin may respond to this
+            await mqtt.async_publish(
+                self._hass,
+                "jeedom/api/request",
+                json.dumps({"action": "getEqLogics", "plugin": "ajaxSystem"}),
+                qos=0,
+                retain=False,
+            )
+            _LOGGER.debug("Requested Ajax equipment list from Jeedom")
+            
+            # Method 2: Trigger a refresh by requesting known command patterns
+            # Many Jeedom setups republish on jeedom/cmd/refresh
+            await mqtt.async_publish(
+                self._hass,
+                "jeedom/cmd/refresh",
+                json.dumps({"plugin": "ajaxSystem"}),
+                qos=0,
+                retain=False,
+            )
+            
+            # Give Jeedom a moment to respond
+            await asyncio.sleep(0.5)
+            
+            _LOGGER.info("Requested initial state from Jeedom MQTT")
+            
+        except Exception as err:
+            _LOGGER.debug("Could not request initial state: %s (this is optional)", err)
+    
+    async def async_request_refresh(self, device_id: Optional[str] = None) -> None:
+        """Request Jeedom to republish state for a device or all devices.
+        
+        Args:
+            device_id: Specific device to refresh, or None for all devices.
+        """
+        try:
+            if device_id and device_id in self._devices:
+                device = self._devices[device_id]
+                # Request refresh for all known command IDs of this device
+                for cmd_name, topic_id in device.jeedom_commands.items():
+                    get_topic = f"{JEEDOM_CMD_GET_TOPIC}/{topic_id}"
+                    await mqtt.async_publish(
+                        self._hass,
+                        get_topic,
+                        "{}",
+                        qos=0,
+                        retain=False,
+                    )
+                    _LOGGER.debug("Requested refresh for %s.%s (topic %s)", 
+                                 device.name, cmd_name, topic_id)
+            else:
+                # Request refresh for all known devices
+                for device in self._devices.values():
+                    for cmd_name, topic_id in device.jeedom_commands.items():
+                        get_topic = f"{JEEDOM_CMD_GET_TOPIC}/{topic_id}"
+                        await mqtt.async_publish(
+                            self._hass,
+                            get_topic,
+                            "{}",
+                            qos=0,
+                            retain=False,
+                        )
+                # Small delay between requests
+                await asyncio.sleep(0.1)
+                
+            _LOGGER.info("Requested state refresh from Jeedom")
+            
+        except Exception as err:
+            _LOGGER.warning("Could not request refresh: %s", err)
     
     async def async_stop(self) -> None:
         """Stop listening for MQTT messages."""

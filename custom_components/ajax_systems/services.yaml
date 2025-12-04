@@ -1,3 +1,7 @@
 diagnose_api:
   name: Diagnose API
   description: Run diagnostics on the Ajax Cloud API to test available endpoints and authentication.
+
+refresh_jeedom:
+  name: Refresh Jeedom Devices
+  description: Request Jeedom to republish the current state of all Ajax devices via MQTT.

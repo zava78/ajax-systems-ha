@@ -101,6 +101,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     hass.services.async_register(DOMAIN, "diagnose_api", handle_diagnose)
     
+    # Register Jeedom refresh service
+    async def handle_refresh_jeedom(call: ServiceCall) -> None:
+        """Handle refresh Jeedom devices service call."""
+        _LOGGER.info("Requesting Jeedom to refresh all Ajax device states...")
+        
+        for coord in hass.data[DOMAIN].values():
+            if hasattr(coord, 'async_request_jeedom_refresh'):
+                try:
+                    await coord.async_request_jeedom_refresh()
+                    await hass.services.async_call(
+                        "persistent_notification",
+                        "create",
+                        {
+                            "title": "Ajax Systems",
+                            "message": "Requested Jeedom to refresh all Ajax device states. Check logs for updates.",
+                            "notification_id": "ajax_jeedom_refresh",
+                        }
+                    )
+                except Exception as e:
+                    _LOGGER.error("Jeedom refresh failed: %s", e)
+    
+    hass.services.async_register(DOMAIN, "refresh_jeedom", handle_refresh_jeedom)
+    
     _LOGGER.info("Ajax Systems integration setup complete")
     return True
 

@@ -367,6 +367,12 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
         """Get Jeedom MQTT handler."""
         return self._jeedom_mqtt_handler
     
+    async def async_request_jeedom_refresh(self) -> None:
+        """Request Jeedom to republish all Ajax device states."""
+        if self._jeedom_mqtt_handler:
+            await self._jeedom_mqtt_handler.async_request_refresh()
+            _LOGGER.info("Requested Jeedom MQTT refresh")
+    
     async def async_setup_mqtt_publisher(self) -> None:
         """Set up MQTT publisher after entities are created."""
         if not self._use_mqtt_publish:
