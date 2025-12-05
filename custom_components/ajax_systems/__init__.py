@@ -44,14 +44,16 @@ PLATFORMS: list[Platform] = [
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Ajax Systems from a config entry."""
-    _LOGGER.debug("Setting up Ajax Systems integration")
+    _LOGGER.info("🚀 Setting up Ajax Systems integration v1.5.0")
     
     coordinator = AjaxDataCoordinator(hass, entry)
     
     # Set up coordinator
     if not await coordinator.async_setup():
-        _LOGGER.error("Failed to set up Ajax Systems coordinator")
+        _LOGGER.error("❌ Failed to set up Ajax Systems coordinator")
         return False
+    
+    _LOGGER.info("✅ Coordinator setup complete")
     
     # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
@@ -59,6 +61,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Store coordinator
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
+    
+    _LOGGER.info("📦 Setting up platforms: %s", PLATFORMS)
     
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -68,6 +72,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Register update listener for config changes
     entry.async_on_unload(entry.add_update_listener(async_update_options))
+    
+    _LOGGER.info("🔧 Registering services...")
     
     # Register diagnostic service
     async def handle_diagnose(call: ServiceCall) -> None:
@@ -101,11 +107,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _LOGGER.error("Diagnostics failed: %s", e)
     
     hass.services.async_register(DOMAIN, "diagnose_api", handle_diagnose)
+    _LOGGER.info("✅ Service registered: ajax_systems.diagnose_api")
     
     # Register Jeedom refresh service
     async def handle_refresh_jeedom(call: ServiceCall) -> None:
         """Handle refresh Jeedom devices service call."""
-        _LOGGER.info("Requesting Jeedom to refresh all Ajax device states...")
+        _LOGGER.info("🔄 Requesting Jeedom to refresh all Ajax device states...")
         
         for coord in hass.data[DOMAIN].values():
             if hasattr(coord, 'async_request_jeedom_refresh'):
@@ -124,11 +131,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _LOGGER.error("Jeedom refresh failed: %s", e)
     
     hass.services.async_register(DOMAIN, "refresh_jeedom", handle_refresh_jeedom)
+    _LOGGER.info("✅ Service registered: ajax_systems.refresh_jeedom")
     
     # Register Jeedom stats service
     async def handle_jeedom_stats(call: ServiceCall) -> None:
         """Handle Jeedom statistics service call."""
-        _LOGGER.info("Showing Jeedom MQTT statistics...")
+        _LOGGER.info("📊 Showing Jeedom MQTT statistics...")
         
         for coord in hass.data[DOMAIN].values():
             if hasattr(coord, 'jeedom_mqtt_handler') and coord.jeedom_mqtt_handler:
@@ -180,8 +188,9 @@ Check logs for full details."""
                 _LOGGER.info("Topics: %s", stats['topics_seen'])
     
     hass.services.async_register(DOMAIN, "jeedom_stats", handle_jeedom_stats)
+    _LOGGER.info("✅ Service registered: ajax_systems.jeedom_stats")
     
-    _LOGGER.info("Ajax Systems integration setup complete")
+    _LOGGER.info("✅✅✅ Ajax Systems integration setup complete ✅✅✅")
     return True
 
 
