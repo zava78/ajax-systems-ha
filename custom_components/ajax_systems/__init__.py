@@ -125,6 +125,62 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     hass.services.async_register(DOMAIN, "refresh_jeedom", handle_refresh_jeedom)
     
+    # Register Jeedom stats service
+    async def handle_jeedom_stats(call: ServiceCall) -> None:
+        """Handle Jeedom statistics service call."""
+        _LOGGER.info("Showing Jeedom MQTT statistics...")
+        
+        for coord in hass.data[DOMAIN].values():
+            if hasattr(coord, 'jeedom_mqtt_handler') and coord.jeedom_mqtt_handler:
+                handler = coord.jeedom_mqtt_handler
+                stats = handler.stats
+                
+                devices_info = "\n".join([
+                    f"- {dev.name} ({dev.device_type}): {dev.zone}"
+                    for dev in list(handler.devices.values())[:10]
+                ])
+                if len(handler.devices) > 10:
+                    devices_info += f"\n... and {len(handler.devices) - 10} more"
+                
+                topics_info = "\n".join(stats["topics_seen"][:10])
+                if len(stats["topics_seen"]) > 10:
+                    topics_info += f"\n... and {len(stats['topics_seen']) - 10} more"
+                
+                message = f"""**Jeedom MQTT Statistics**
+
+📊 Counters:
+- Messages: {stats['messages']}
+- Discoveries: {stats['discoveries']}
+- Events: {stats['events']}
+- Devices: {stats['devices']}
+
+📱 Devices:
+{devices_info or "No devices yet"}
+
+📡 Topics seen:
+{topics_info or "No topics yet"}
+
+Check logs for full details."""
+                
+                await hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": "Ajax Jeedom MQTT Stats",
+                        "message": message,
+                        "notification_id": "ajax_jeedom_stats",
+                    }
+                )
+                
+                _LOGGER.info("=== JEEDOM MQTT STATISTICS ===")
+                _LOGGER.info("Messages: %d", stats['messages'])
+                _LOGGER.info("Discoveries: %d", stats['discoveries'])
+                _LOGGER.info("Events: %d", stats['events'])
+                _LOGGER.info("Devices: %d", stats['devices'])
+                _LOGGER.info("Topics: %s", stats['topics_seen'])
+    
+    hass.services.async_register(DOMAIN, "jeedom_stats", handle_jeedom_stats)
+    
     _LOGGER.info("Ajax Systems integration setup complete")
     return True
 

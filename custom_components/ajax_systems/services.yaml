@@ -5,3 +5,7 @@ diagnose_api:
 refresh_jeedom:
   name: Refresh Jeedom Devices
   description: Request Jeedom to republish the current state of all Ajax devices via MQTT.
+
+jeedom_stats:
+  name: Jeedom MQTT Statistics
+  description: Show statistics about Jeedom MQTT messages, devices discovered, and topics seen.

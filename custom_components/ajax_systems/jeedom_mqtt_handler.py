@@ -49,6 +49,11 @@ _LOGGER = logging.getLogger(__name__)
 # Default Jeedom MQTT topic for Ajax events
 DEFAULT_JEEDOM_MQTT_TOPIC = "jeedom/cmd/event"
 
+# Additional Jeedom topics
+JEEDOM_DISCOVERY_TOPIC = "jeedom/discovery/eqLogic"
+JEEDOM_EVENT_TOPIC = "jeedom/event"
+JEEDOM_CMD_TOPIC = "jeedom/cmd"
+
 # Topic for requesting state refresh from Jeedom
 JEEDOM_CMD_GET_TOPIC = "jeedom/cmd/get"
 
@@ -58,6 +63,7 @@ JEEDOM_EQLOGIC_TOPIC = "jeedom/eqLogic"
 # Signal for entity updates
 SIGNAL_JEEDOM_UPDATE = f"{DOMAIN}_jeedom_update"
 SIGNAL_JEEDOM_DEVICE_UPDATE = f"{DOMAIN}_jeedom_device_update"
+SIGNAL_JEEDOM_DISCOVERY = f"{DOMAIN}_jeedom_discovery"
 
 # Command name to attribute mapping
 COMMAND_MAPPING = {
@@ -283,15 +289,29 @@ class JeedomMqttHandler:
         self._hass = hass
         self._topic = topic
         self._language = language
-        self._unsubscribe: Optional[Callable] = None
+        self._unsubscribe: list[Callable] = []
         self._devices: dict[str, JeedomDevice] = {}
         self._callbacks: list[Callable[[JeedomDevice, str], None]] = []
         self._message_count = 0
+        self._discovery_count = 0
+        self._event_count = 0
+        self._topics_seen: set[str] = set()
         
     @property
     def devices(self) -> dict[str, JeedomDevice]:
         """Get all discovered devices."""
         return self._devices
+    
+    @property
+    def stats(self) -> dict[str, Any]:
+        """Get handler statistics."""
+        return {
+            "devices": len(self._devices),
+            "messages": self._message_count,
+            "discoveries": self._discovery_count,
+            "events": self._event_count,
+            "topics_seen": list(self._topics_seen),
+        }
     
     def translate(self, text: str) -> str:
         """Translate text to target language."""
@@ -448,6 +468,106 @@ class JeedomMqttHandler:
         except Exception as err:
             _LOGGER.error("Error handling message: %s", err)
     
+    @callback
+    def _handle_discovery(self, msg) -> None:
+        """Handle Jeedom discovery messages."""
+        self._discovery_count += 1
+        self._topics_seen.add(msg.topic)
+        
+        try:
+            payload = json.loads(msg.payload)
+            
+            _LOGGER.info("🔍 DISCOVERY [%s]: Found %d items", msg.topic, len(payload) if isinstance(payload, list) else 1)
+            
+            # Show notification to user
+            self._hass.async_create_task(
+                self._hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": "Ajax Jeedom Discovery",
+                        "message": f"Discovered {len(payload) if isinstance(payload, list) else 1} equipment items\nTopic: {msg.topic}\n\nCheck logs for details.",
+                        "notification_id": "ajax_jeedom_discovery",
+                    }
+                )
+            )
+            
+            # Process discovery data
+            if isinstance(payload, list):
+                for item in payload:
+                    self._process_discovery_item(item)
+            elif isinstance(payload, dict):
+                self._process_discovery_item(payload)
+                
+        except json.JSONDecodeError as err:
+            _LOGGER.warning("Invalid JSON in discovery: %s", msg.payload[:200])
+        except Exception as err:
+            _LOGGER.error("Error handling discovery: %s", err, exc_info=True)
+    
+    def _process_discovery_item(self, item: dict[str, Any]) -> None:
+        """Process a single discovery item."""
+        try:
+            # Extract device info from discovery
+            device_id = item.get("id")
+            name = item.get("name", "Unknown")
+            eq_type = item.get("eqType_name", "")
+            logic_id = item.get("logicalId", "")
+            
+            _LOGGER.info(
+                "📱 Discovery item: id=%s, name=%s, type=%s, logicalId=%s",
+                device_id, name, eq_type, logic_id
+            )
+            
+            # Log all keys for debugging
+            _LOGGER.debug("Discovery item keys: %s", list(item.keys()))
+            
+            # Check if it's an Ajax device
+            if eq_type and "ajax" in eq_type.lower():
+                _LOGGER.info("✅ Ajax device detected: %s (%s)", name, eq_type)
+                
+        except Exception as err:
+            _LOGGER.error("Error processing discovery item: %s", err)
+    
+    @callback
+    def _handle_event(self, msg) -> None:
+        """Handle Jeedom event messages."""
+        self._event_count += 1
+        self._topics_seen.add(msg.topic)
+        
+        try:
+            payload = json.loads(msg.payload)
+            topic = msg.topic
+            
+            _LOGGER.debug("📢 EVENT [%s]: %s", topic, payload)
+            
+            # Extract event data
+            value = payload.get("value")
+            human_name = payload.get("humanName", "")
+            event_type = payload.get("type", "")
+            subtype = payload.get("subtype", "")
+            
+            if human_name:
+                _LOGGER.info(
+                    "📊 Event: %s = %s (type=%s, subtype=%s)",
+                    human_name, value, event_type, subtype
+                )
+            
+            # Try to process as regular message too
+            result = self._process_message(topic, payload)
+            if result:
+                device, changed_attr = result
+                if changed_attr:
+                    for callback_fn in self._callbacks:
+                        try:
+                            callback_fn(device, changed_attr)
+                        except Exception as err:
+                            _LOGGER.error("Callback error: %s", err)
+                
+        except json.JSONDecodeError as err:
+            _LOGGER.warning("Invalid JSON in event: %s", msg.payload[:200])
+        except Exception as err:
+            _LOGGER.error("Error handling event: %s", err)
+    
     def add_callback(self, callback_fn: Callable[[JeedomDevice, str], None]) -> None:
         """Add a callback for device updates."""
         self._callbacks.append(callback_fn)
@@ -464,22 +584,55 @@ class JeedomMqttHandler:
                 _LOGGER.warning("MQTT not available")
                 return False
             
-            # Subscribe with wildcard to catch all sub-topics
+            # Subscribe to main command event topic
             subscribe_topic = self._topic
             if not subscribe_topic.endswith("#") and not subscribe_topic.endswith("+"):
                 subscribe_topic = f"{self._topic.rstrip('/')}/#"
             
-            self._unsubscribe = await mqtt.async_subscribe(
+            unsub1 = await mqtt.async_subscribe(
                 self._hass,
                 subscribe_topic,
                 self._handle_message,
                 qos=0,
             )
+            self._unsubscribe.append(unsub1)
+            _LOGGER.info("✅ Subscribed to: %s", subscribe_topic)
+            
+            # Subscribe to discovery topic
+            unsub2 = await mqtt.async_subscribe(
+                self._hass,
+                "jeedom/discovery/#",
+                self._handle_discovery,
+                qos=0,
+            )
+            self._unsubscribe.append(unsub2)
+            _LOGGER.info("✅ Subscribed to: jeedom/discovery/#")
+            
+            # Subscribe to general event topic
+            unsub3 = await mqtt.async_subscribe(
+                self._hass,
+                "jeedom/event",
+                self._handle_event,
+                qos=0,
+            )
+            self._unsubscribe.append(unsub3)
+            _LOGGER.info("✅ Subscribed to: jeedom/event")
+            
+            # Subscribe to cmd topic (if different)
+            if not self._topic.startswith("jeedom/cmd"):
+                unsub4 = await mqtt.async_subscribe(
+                    self._hass,
+                    "jeedom/cmd/#",
+                    self._handle_message,
+                    qos=0,
+                )
+                self._unsubscribe.append(unsub4)
+                _LOGGER.info("✅ Subscribed to: jeedom/cmd/#")
             
             _LOGGER.info(
-                "Subscribed to Jeedom MQTT: %s (language: %s)",
-                subscribe_topic,
+                "🚀 Jeedom MQTT handler started (language: %s, subscriptions: %d)",
                 self._language,
+                len(self._unsubscribe),
             )
             
             # Request initial state from Jeedom
@@ -574,10 +727,17 @@ class JeedomMqttHandler:
     
     async def async_stop(self) -> None:
         """Stop listening for MQTT messages."""
-        if self._unsubscribe:
-            self._unsubscribe()
-            self._unsubscribe = None
-            _LOGGER.info("Unsubscribed from Jeedom MQTT (processed %d messages)", self._message_count)
+        for unsub in self._unsubscribe:
+            unsub()
+        self._unsubscribe.clear()
+        
+        _LOGGER.info(
+            "Unsubscribed from Jeedom MQTT (messages: %d, discoveries: %d, events: %d, devices: %d)",
+            self._message_count,
+            self._discovery_count,
+            self._event_count,
+            len(self._devices),
+        )
     
     def get_device(self, device_id: str) -> Optional[JeedomDevice]:
         """Get a device by ID."""
