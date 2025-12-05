@@ -20,6 +20,9 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_HUB_ID,
+    CONF_JEEDOM_CMD_ARM,
+    CONF_JEEDOM_CMD_DISARM,
+    CONF_JEEDOM_CMD_NIGHT_MODE,
     CONF_JEEDOM_MQTT_ENABLED,
     CONF_JEEDOM_MQTT_TOPIC,
     CONF_JEEDOM_MQTT_LANGUAGE,
@@ -151,6 +154,24 @@ class AjaxOptionsFlow(OptionsFlow):
                     "it": "Italiano",
                     "en": "English",
                 }),
+                vol.Optional(
+                    CONF_JEEDOM_CMD_ARM,
+                    description={"suggested_value": current_data.get(CONF_JEEDOM_CMD_ARM, "")},
+                ): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
+                vol.Optional(
+                    CONF_JEEDOM_CMD_DISARM,
+                    description={"suggested_value": current_data.get(CONF_JEEDOM_CMD_DISARM, "")},
+                ): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
+                vol.Optional(
+                    CONF_JEEDOM_CMD_NIGHT_MODE,
+                    description={"suggested_value": current_data.get(CONF_JEEDOM_CMD_NIGHT_MODE, "")},
+                ): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
                 vol.Optional(
                     CONF_USE_SIA,
                     default=current_data.get(CONF_USE_SIA, False),

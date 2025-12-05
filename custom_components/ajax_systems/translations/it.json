@@ -40,6 +40,9 @@
         "data": {
           "jeedom_mqtt_topic": "Topic MQTT",
           "jeedom_mqtt_language": "Lingua Traduzione",
+          "jeedom_cmd_arm": "ID Comando Inserimento",
+          "jeedom_cmd_disarm": "ID Comando Disinserimento",
+          "jeedom_cmd_night_mode": "ID Comando Modalità Notte",
           "use_sia": "Abilita ricevitore SIA",
           "sia_port": "Porta SIA",
           "sia_account": "Codice Account"
@@ -47,6 +50,9 @@
         "data_description": {
           "jeedom_mqtt_topic": "Topic MQTT dove Jeedom pubblica gli eventi Ajax",
           "jeedom_mqtt_language": "Lingua in cui tradurre i nomi dei sensori dal francese",
+          "jeedom_cmd_arm": "ID comando Jeedom per inserire l'allarme (es. 15) - Opzionale",
+          "jeedom_cmd_disarm": "ID comando Jeedom per disinserire l'allarme (es. 17) - Opzionale",
+          "jeedom_cmd_night_mode": "ID comando Jeedom per modalità notte (es. 16) - Opzionale",
           "use_sia": "Abilita ricevitore SIA DC-09 per ulteriori eventi allarme in tempo reale",
           "sia_port": "Porta per ricevere eventi SIA (default: 2410)",
           "sia_account": "Codice account configurato nel tuo Ajax Hub"

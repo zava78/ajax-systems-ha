@@ -40,6 +40,9 @@
         "data": {
           "jeedom_mqtt_topic": "MQTT Topic",
           "jeedom_mqtt_language": "Translation Language",
+          "jeedom_cmd_arm": "Arm Command ID",
+          "jeedom_cmd_disarm": "Disarm Command ID",
+          "jeedom_cmd_night_mode": "Night Mode Command ID",
           "use_sia": "Enable SIA receiver",
           "sia_port": "SIA Port",
           "sia_account": "Account Code"
@@ -47,6 +50,9 @@
         "data_description": {
           "jeedom_mqtt_topic": "MQTT topic where Jeedom publishes Ajax events",
           "jeedom_mqtt_language": "Language to translate French sensor names to",
+          "jeedom_cmd_arm": "Jeedom command ID to arm the alarm (e.g. 15) - Optional",
+          "jeedom_cmd_disarm": "Jeedom command ID to disarm the alarm (e.g. 17) - Optional",
+          "jeedom_cmd_night_mode": "Jeedom command ID for night mode (e.g. 16) - Optional",
           "use_sia": "Enable SIA DC-09 receiver for additional real-time alarm events",
           "sia_port": "Port to listen for SIA events (default: 2410)",
           "sia_account": "Account code configured in your Ajax Hub"

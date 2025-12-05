@@ -39,6 +39,11 @@ CONF_JEEDOM_MQTT_ENABLED: Final = "jeedom_mqtt_enabled"
 CONF_JEEDOM_MQTT_TOPIC: Final = "jeedom_mqtt_topic"
 CONF_JEEDOM_MQTT_LANGUAGE: Final = "jeedom_mqtt_language"
 
+# Jeedom MQTT Command IDs (for controlling alarm)
+CONF_JEEDOM_CMD_ARM: Final = "jeedom_cmd_arm"
+CONF_JEEDOM_CMD_DISARM: Final = "jeedom_cmd_disarm"
+CONF_JEEDOM_CMD_NIGHT_MODE: Final = "jeedom_cmd_night_mode"
+
 # Default values
 DEFAULT_SIA_PORT: Final = 2410
 DEFAULT_JEEDOM_PORT: Final = 80
