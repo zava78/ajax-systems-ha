@@ -323,6 +323,12 @@ class JeedomMqttHandler:
         """Detect device type from name."""
         name_lower = device_name.lower()
         
+        # Filter out virtual/aggregate devices
+        virtual_keywords = ["totale", "total", "tlc", "somma", "sum", "aggreg"]
+        if any(keyword in name_lower for keyword in virtual_keywords):
+            _LOGGER.debug("Detected virtual/aggregate device: %s", device_name)
+            return "virtual"
+        
         for dev_type, patterns in DEVICE_TYPE_PATTERNS.items():
             for pattern in patterns:
                 if pattern in name_lower:
@@ -441,7 +447,7 @@ class JeedomMqttHandler:
                 device, changed_attr = result
                 
                 if changed_attr:
-                    _LOGGER.info(
+                    _LOGGER.debug(
                         "Device %s updated: %s = %s",
                         device.name,
                         changed_attr,
@@ -513,7 +519,7 @@ class JeedomMqttHandler:
             eq_type = item.get("eqType_name", "")
             logic_id = item.get("logicalId", "")
             
-            _LOGGER.info(
+            _LOGGER.debug(
                 "📱 Discovery item: id=%s, name=%s, type=%s, logicalId=%s",
                 device_id, name, eq_type, logic_id
             )
@@ -547,7 +553,7 @@ class JeedomMqttHandler:
             subtype = payload.get("subtype", "")
             
             if human_name:
-                _LOGGER.info(
+                _LOGGER.debug(
                     "📊 Event: %s = %s (type=%s, subtype=%s)",
                     human_name, value, event_type, subtype
                 )

@@ -172,6 +172,11 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
         hub_id = self.data.hub.device_id if self.data.hub else "ajax_hub"
         device_id = device.device_id
         
+        # Skip virtual/aggregate devices
+        if device.device_type == "virtual":
+            _LOGGER.debug("Skipping virtual device: %s", device.name)
+            return
+        
         # Check if device type was updated from unknown to known
         should_recreate = False
         if device_id in self.data.devices:
@@ -281,12 +286,28 @@ class AjaxDataCoordinator(DataUpdateCoordinator[AjaxCoordinator]):
             )
         else:
             # For unknown types, try to infer from available attributes
-            _LOGGER.warning(
-                "Unknown device type '%s' for device '%s'. Available attrs: is_open=%s, motion=%s, leak=%s, smoke=%s",
-                device_type, name, 
-                jeedom_device.is_open, jeedom_device.motion, 
-                jeedom_device.leak, jeedom_device.smoke
-            )
+            # Check if this is a virtual/aggregate device (e.g., "Totale", "TLC xxx")
+            is_virtual = any(keyword in name.lower() for keyword in ["totale", "total", "tlc", "somma", "sum"])
+            
+            # Only log warning once per device, and only if not virtual
+            has_attrs = any([
+                jeedom_device.is_open is not None,
+                jeedom_device.motion is not None,
+                jeedom_device.leak is not None,
+                jeedom_device.smoke is not None
+            ])
+            
+            if not is_virtual and device_id not in self.data.devices:
+                if has_attrs:
+                    _LOGGER.info(
+                        "Unknown device type '%s' for device '%s', inferring from attributes",
+                        device_type, name
+                    )
+                else:
+                    _LOGGER.debug(
+                        "Unknown device '%s' (type='%s') with no sensor attributes - likely virtual/aggregate device",
+                        name, device_type
+                    )
             
             # Infer device type from available attributes
             if jeedom_device.is_open is not None:
