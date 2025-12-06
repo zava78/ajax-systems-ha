@@ -3,7 +3,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/release/zava78/ajax-systems-ha.svg)](https://github.com/zava78/ajax-systems-ha/releases)
 [![License](https://img.shields.io/github/license/zava78/ajax-systems-ha.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/zava78/ajax-systems-ha)
+[![Version](https://img.shields.io/badge/version-1.5.2-blue.svg)](https://github.com/zava78/ajax-systems-ha)
 
 Custom Home Assistant integration for **Ajax Systems** security alarms.
 
@@ -367,26 +367,81 @@ automation:
 
 ## Changelog
 
+### v1.5.2 (2025-12-06)
+- 🐛 **Fixed excessive logging** - Reduced 200+ repetitive log messages to debug level
+- 🐛 **Fixed "Unknown device type" warnings** - Added smart detection for virtual/aggregate devices
+- ✨ **Virtual device filtering** - Automatically skip "Totale", "TLC", aggregated sensors
+- 📊 Better device type inference from available attributes
+- 🔇 Only log important events (discovery, new devices) as info
+
+### v1.5.1 (2025-12-06)
+- 📢 **Enhanced logging with emoji** - Easy identification of integration stages
+- ✅ Visible service registration confirmation in logs
+- 🔍 Better debugging visibility for MQTT message processing
+
+### v1.5.0 (2025-12-06)
+- 🚀 **Enhanced MQTT discovery** - Subscribe to multiple Jeedom topics:
+  - `jeedom/discovery/eqLogic` - Full equipment discovery
+  - `jeedom/event` - General events
+  - `jeedom/cmd/event/#` - Command events
+  - `jeedom/cmd/#` - All commands
+- 📊 **Statistics service** - New `ajax_systems.jeedom_stats` service
+- 📈 Track discovered devices, messages, events, and topics
+- 🔔 Persistent notifications for discovery progress
+- 🐛 Fixed discovery of all 193 MQTT topics (was only showing 10 entities)
+
+### v1.4.0 (2025-12-05)
+- 🎛️ **Button platform** - ARM/DISARM/NIGHT_MODE buttons for alarm control
+- 🔘 Configurable command IDs via options flow
+- 📤 Publish commands to `jeedom/cmd/set/{command_id}`
+
+### v1.3.2 (2025-12-04)
+- 🔄 **Initial state request** - Request current state from Jeedom on startup
+- 📩 Publish to `jeedom/cmd/get/#` to trigger state refresh
+- ⚡ Faster entity availability on integration load
+
+### v1.3.1 (2025-12-04)
+- 🔍 **Command-based device detection** - Infer device type from MQTT commands
+- 🐛 Fixed device type "unknown" for sensors
+- 📝 Map French commands (Ouvert/Fermé, Mouvement, Fuite) to device types
+
+### v1.3.0 (2025-12-04)
+- 🏗️ **Major architecture rewrite** - Device-based model instead of command-based
+- 📦 One device per physical sensor (with multiple entities)
+- 🔧 Dynamic device type detection from MQTT topics
+- 🌐 French name translation (Trafiqué → Tamper, En ligne → Online)
+- 🐛 Fixed all devices disappearing after config flow changes
+
+### v1.2.3 (2025-12-04)
+- 🐛 Fixed MQTT topic subscription pattern
+- 📡 Subscribe to `jeedom/cmd/event/#` (was missing wildcard)
+
+### v1.2.2 (2025-12-03)
+- 🐛 Fixed MQTT entity discovery
+- 📝 Better logging for MQTT messages
+
+### v1.2.1 (2025-12-03)
+- 🐛 Fixed MQTT handler initialization
+
 ### v1.2.0 (2025-12-03)
-- 📡 **Jeedom MQTT subscription** - Receive sensor states from Jeedom via MQTT with French translation
+- 📡 **Jeedom MQTT subscription** - Receive sensor states from Jeedom via MQTT
 - 🗑️ **Removed Cloud API** - Non-functional since 2018
 - 🗑️ **Removed Enterprise API references** - Only available to commercial partners
 - 🌐 French to Italian/English translation for sensor names and states
 
 ### v1.1.0 (2025-12-02)
-- 🔧 **Jeedom local/remote server support** - Connect directly to Jeedom server with IP/DNS and port
-- 🔧 Replaced Jeedom Market cloud proxy with direct server connection
-- 🔧 Added SSL/HTTPS support for Jeedom connection
-- 🔧 Added API key authentication for Jeedom
+- 🔧 **Jeedom local/remote server support** - Connect directly to Jeedom server
+- 🔧 Replaced Jeedom Market cloud proxy with direct connection
+- 🔧 Added SSL/HTTPS support
+- 🔧 Added API key authentication
 
 ### v1.0.0 (2025-12-02)
 - 🎉 **Initial stable release**
-- ✅ SIA DC-09 protocol support with Ajax-specific format
-- ✅ Jeedom Cloud Proxy for full arm/disarm control
-- ✅ MQTT state publishing option
+- ✅ SIA DC-09 protocol support
+- ✅ Jeedom Cloud Proxy for arm/disarm control
+- ✅ MQTT state publishing
 - ✅ Support for all major Ajax sensors
 - ✅ HACS compatible
-- ✅ Multi-language support (EN, IT)
 
 ### v0.1.0 (Initial)
 - Basic SIA support
